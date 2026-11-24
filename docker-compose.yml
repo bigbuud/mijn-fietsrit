@@ -19,7 +19,7 @@ services:
 
     # Poort: buiten (NAS) : binnen (container)
     ports:
-      - "5252:5252"
+      - "5353:5252"
 
     # Het proces draait met deze gebruiker en groep, zodat de bestanden in
     # /volume1/docker/fietslog van jouw Synology-gebruiker blijven.
@@ -30,7 +30,7 @@ services:
 
     environment:
       TZ: Europe/Brussels
-      PORT: "5252"
+      PORT: "5353"
       DATA_DIR: /data
 
       # ── Inloggen ──────────────────────────────────────────────
