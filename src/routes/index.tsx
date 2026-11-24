@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil } from "lucide-react";
+import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
   component: App,
 });
 
-type Tab = "nieuw" | "ritten" | "grafieken" | "overzicht";
+type Tab = "nieuw" | "ritten" | "grafieken" | "overzicht" | "instellingen";
 type AuthState = "laden" | "offline" | "login" | "setup" | "ok";
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -84,7 +84,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
               <p className="font-display text-2xl uppercase tracking-wide text-[var(--geel)]">Fietslog</p>
               {naam && <p className="text-xs text-white/60">Hoi {naam}!</p>}
             </div>
-            <button onClick={() => confirm("Uitloggen op dit toestel?") && onUitloggen()} aria-label="Uitloggen" className="rounded-full bg-white/10 p-2 text-white/80 active:bg-white/20"><LogOut className="h-5 w-5" /></button>
+            <button onClick={() => setTab("instellingen")} aria-label="Instellingen" className={`rounded-full p-2 active:bg-white/20 ${tab === "instellingen" ? "bg-[var(--geel)] text-black" : "bg-white/10 text-white/80"}`}><Settings className="h-5 w-5" /></button>
           </div>
           <div className="mt-4 flex items-end gap-4">
             <div className="bib"><span className="font-display text-6xl leading-none">{totKm.toFixed(0)}</span><span className="font-display ml-1 text-2xl">km</span></div>
@@ -94,9 +94,10 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
       </header>
       <main className="mx-auto -mt-5 max-w-md px-4">
         {tab === "nieuw" && <RitFormulier titel="Nieuwe rit" opslaanTekst="Rit opslaan" onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
-        {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} onImport={(nieuw) => update([...rides, ...nieuw], true)} />}
+        {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
         {tab === "overzicht" && <Overzicht rides={rides} />}
+        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={onUitloggen} />}
       </main>
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
         <div className="mx-auto grid max-w-md grid-cols-4 px-2 pt-2 pb-1">
@@ -162,20 +163,35 @@ function RitFormulier({ start, titel, opslaanTekst, onSave, onAnnuleer, onVerwij
   );
 }
 
+function Instellingen({ naam, rides, onImport, onUitloggen }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void }) {
+  const [importOpen, setImportOpen] = useState(false);
+  const knop = "font-display flex w-full items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-card py-3 text-xl uppercase text-foreground";
+  return <>
+    <Card title="Instellingen">
+      {naam && <p className="text-sm text-muted-foreground">Ingelogd als <b className="text-foreground">{naam}</b></p>}
+    </Card>
+    <Card title="Gegevens">
+      <div className="space-y-3">
+        {importOpen
+          ? <Importeren bestaand={rides} onImport={onImport} onSluit={() => setImportOpen(false)} />
+          : <button onClick={() => setImportOpen(true)} className={knop}><Upload className="h-5 w-5" />Oude ritten importeren</button>}
+        <button onClick={() => downloadCsv(rides)} disabled={!rides.length} className="knop-geel font-display flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase disabled:opacity-50"><Download className="h-5 w-5" />Download als CSV</button>
+      </div>
+    </Card>
+    <Card title="Account">
+      <button onClick={() => confirm("Uitloggen op dit toestel?") && onUitloggen()} className={knop}><LogOut className="h-5 w-5" />Uitloggen</button>
+    </Card>
+  </>;
+}
+
 const em = (list: { v: string; e: string }[], v: string) => list.find((x) => x.v === v)?.e ?? "";
 
-function Ritten({ rides, onDelete, onEdit, onImport }: { rides: Ride[]; onDelete: (id: string) => void; onEdit: (r: Ride) => void; onImport: (nieuw: Ride[]) => void }) {
-  const [importOpen, setImportOpen] = useState(false);
+function Ritten({ rides, onDelete, onEdit }: { rides: Ride[]; onDelete: (id: string) => void; onEdit: (r: Ride) => void }) {
   const [bewerkId, setBewerkId] = useState<string | null>(null);
   const sorted = [...rides].sort((a, b) => b.datum.localeCompare(a.datum));
   const nummer = new Map([...rides].sort((a, b) => a.datum.localeCompare(b.datum)).map((r, i) => [r.id, i + 1]));
-  const importBlok = importOpen
-    ? <Importeren bestaand={rides} onImport={onImport} onSluit={() => setImportOpen(false)} />
-    : <button onClick={() => setImportOpen(true)} className="font-display mb-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-card py-2 text-xl uppercase text-foreground"><Upload className="h-5 w-5" />Oude ritten importeren</button>;
-  if (!sorted.length) return <>{importBlok}<Card><p className="text-muted-foreground">Nog geen ritten. Voeg je eerste rit toe via “Nieuw”, of importeer je oude ritten uit Excel.</p></Card></>;
+  if (!sorted.length) return <Card><p className="text-muted-foreground">Nog geen ritten. Voeg je eerste rit toe via “Nieuw”, of importeer je oude ritten via Instellingen (tandwiel rechtsboven).</p></Card>;
   return <>
-    {importBlok}
-    <button onClick={() => downloadCsv(rides)} className="knop-geel font-display mb-4 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xl uppercase"><Download className="h-5 w-5" />Download als CSV</button>
     {sorted.map((r) => r.id === bewerkId ? (
       <div key={r.id} ref={(el) => el?.scrollIntoView({ block: "start", behavior: "smooth" })}>
         <RitFormulier start={r} titel="Rit bewerken" opslaanTekst="Wijzigingen opslaan" onSave={(nieuw) => { onEdit(nieuw); setBewerkId(null); }} onAnnuleer={() => setBewerkId(null)}
