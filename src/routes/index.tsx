@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings } from "lucide-react";
+import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings, Monitor, Sun, Moon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Fiets, Trui } from "@/components/Fiets";
 import { Inloggen } from "@/components/Inloggen";
 import { Importeren } from "@/components/Importeren";
+import { getThema, setThema, type Thema } from "@/lib/thema";
 import { authPost, getStatus, NietIngelogd } from "@/lib/auth";
 import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, fetchRides, nieuwId, saveRides, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
 
@@ -78,7 +79,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
     <div className="min-h-screen bg-background pb-28">
       <header className="hero-band px-5 pb-12">
         <Fiets className="pointer-events-none absolute -right-6 bottom-6 h-24 w-auto text-[var(--geel)] opacity-20" />
-        <div className="relative mx-auto max-w-md">
+        <div className="relative mx-auto max-w-md md:max-w-2xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-display text-2xl uppercase tracking-wide text-[var(--geel)]">Fietslog</p>
@@ -92,7 +93,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
           </div>
         </div>
       </header>
-      <main className="mx-auto -mt-5 max-w-md px-4">
+      <main className="mx-auto -mt-5 max-w-md px-4 md:max-w-2xl">
         {tab === "nieuw" && <RitFormulier titel="Nieuwe rit" opslaanTekst="Rit opslaan" onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
         {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
@@ -100,7 +101,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
         {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={onUitloggen} />}
       </main>
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
-        <div className="mx-auto grid max-w-md grid-cols-4 px-2 pt-2 pb-1">
+        <div className="mx-auto grid max-w-md grid-cols-4 md:max-w-2xl px-2 pt-2 pb-1">
           {([["nieuw", Plus, "Nieuw"], ["ritten", List, "Ritten"], ["grafieken", BarChart3, "Grafieken"], ["overzicht", CalendarDays, "Overzicht"]] as const).map(([k, Icon, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-wide ${tab === k ? "text-[var(--geel)]" : "text-white/60"}`}>
               <span className={`rounded-full px-4 py-1 ${tab === k ? "nav-actief" : ""}`}><Icon className="h-6 w-6" /></span>{l}
@@ -163,12 +164,28 @@ function RitFormulier({ start, titel, opslaanTekst, onSave, onAnnuleer, onVerwij
   );
 }
 
+const THEMAS = [
+  { v: "systeem", Icon: Monitor, l: "Systeem" },
+  { v: "licht", Icon: Sun, l: "Licht" },
+  { v: "donker", Icon: Moon, l: "Donker" },
+] as const;
+
 function Instellingen({ naam, rides, onImport, onUitloggen }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void }) {
   const [importOpen, setImportOpen] = useState(false);
+  const [themaKeuze, setThemaKeuze] = useState<Thema>("systeem");
+  useEffect(() => { setThemaKeuze(getThema()); }, []);
   const knop = "font-display flex w-full items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-card py-3 text-xl uppercase text-foreground";
   return <>
     <Card title="Instellingen">
       {naam && <p className="text-sm text-muted-foreground">Ingelogd als <b className="text-foreground">{naam}</b></p>}
+    </Card>
+    <Card title="Achtergrond">
+      <div className="grid grid-cols-3 gap-2">
+        {THEMAS.map(({ v, Icon, l }) => (
+          <button key={v} type="button" onClick={() => { setThema(v); setThemaKeuze(v); }} aria-pressed={themaKeuze === v} className={`chip ${themaKeuze === v ? "chip-on" : ""}`}><Icon className="h-6 w-6" />{l}</button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">“Systeem” volgt de instelling van je gsm of tablet. De keuze geldt voor dit toestel.</p>
     </Card>
     <Card title="Gegevens">
       <div className="space-y-3">

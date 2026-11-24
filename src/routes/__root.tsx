@@ -85,6 +85,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "Fietslog" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
     ],
+    // Thema (licht/donker) vóór het tekenen toepassen, zodat er geen flits is
+    scripts: [{ children: `try{var t=localStorage.getItem("fietslog-thema");if(t==="licht"||t==="donker")document.documentElement.setAttribute("data-theme",t)}catch(e){}` }],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -103,7 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="nl">
+    <html lang="nl" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

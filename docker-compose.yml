@@ -2,7 +2,7 @@
 #  Fietslog – wielerdagboek            (Synology + Dockhand)
 #  App:      http://<ip-van-je-nas>:5353
 #  Gegevens: /volume1/docker/fietslog   (ritten, account, sessiesleutel)
-#  Image:    wordt automatisch gebouwd door GitHub (.github/workflows/docker.yml)
+#  Image:    wordt automatisch gebouwd door GitHub (.github/workflows/docker-image.yml)
 # ══════════════════════════════════════════════════════════════════
 #
 #  VOOR DE EERSTE START (eenmalig, via SSH of File Station):
