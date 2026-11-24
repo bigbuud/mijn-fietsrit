@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings, Monitor, Sun, Moon } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
@@ -8,8 +8,9 @@ import { Fiets, Trui } from "@/components/Fiets";
 import { Inloggen } from "@/components/Inloggen";
 import { Importeren } from "@/components/Importeren";
 import { getThema, setThema, type Thema } from "@/lib/thema";
-import { authPost, getStatus, NietIngelogd } from "@/lib/auth";
-import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, fetchRides, nieuwId, saveRides, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
+import { authPost, getStatus, NietIngelogd, onthoudSessie, onthoudenSessie, vergeetSessie } from "@/lib/auth";
+import { aantalWachtend, lokaleRitten, plaatsInWachtrij, synchroniseer, wisLokaleData } from "@/lib/sync";
+import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, nieuwId, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,11 +50,26 @@ function App() {
   const check = () =>
     getStatus()
       .then((s) => {
-        if (s.ingelogd) { setNaam(s.gebruikersnaam); setAuth("ok"); }
-        else setAuth(s.ingesteld ? "login" : "setup");
+        if (s.ingelogd) { onthoudSessie(s.gebruikersnaam); setNaam(s.gebruikersnaam); setAuth("ok"); }
+        else { vergeetSessie(); setAuth(s.ingesteld ? "login" : "setup"); }
       })
-      .catch(() => setAuth("offline"));
+      .catch(() => {
+        // NAS niet bereikbaar: was je hier eerder ingelogd, dan open je de app met de ritten van dit toestel.
+        const sessie = onthoudenSessie();
+        if (sessie) { setNaam(sessie.naam); setAuth("ok"); } else setAuth("offline");
+      });
   useEffect(() => { void check(); }, []);
+  // Service worker (alleen mogelijk via https): bewaart de app zelf op het toestel, zodat ze ook opent als de NAS uit ligt.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+    navigator.serviceWorker.register("/sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .then((reg) => {
+        const urls = performance.getEntriesByType("resource").map((r) => r.name).filter((u) => new URL(u).origin === location.origin && !u.includes("/api/"));
+        reg.active?.postMessage({ type: "cache", urls: ["/", ...urls] });
+      })
+      .catch(() => {});
+  }, []);
 
   if (auth === "laden") return <Splash><p className="mt-3 text-sm text-[color:var(--hero-fg)]/60">Even laden…</p></Splash>;
   if (auth === "offline") return (
@@ -63,15 +79,43 @@ function App() {
     </Splash>
   );
   if (auth === "login" || auth === "setup") return <><Inloggen eersteKeer={auth === "setup"} onKlaar={() => void check()} /><Toaster position="top-center" /></>;
-  return <Ritlog naam={naam} onVerlopen={() => setAuth("login")} onUitloggen={async () => { await authPost("logout"); setAuth("login"); }} />;
+  return <Ritlog naam={naam} onVerlopen={() => { vergeetSessie(); setAuth("login"); }} onUitloggen={async () => { const f = await authPost("logout"); if (f) { toast.error("Uitloggen lukt alleen met verbinding met de NAS."); return; } vergeetSessie(); wisLokaleData(); setAuth("login"); }} />;
 }
 
 function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerlopen: () => void; onUitloggen: () => void }) {
-  const [rides, setRides] = useState<Ride[]>([]);
+  const [rides, setRides] = useState<Ride[]>(() => lokaleRitten());
   const [tab, setTab] = useState<Tab>("nieuw");
+  const [wachtend, setWachtend] = useState(() => aantalWachtend());
+  const offlineGeweest = useRef(false);
   const fout = (e: unknown, tekst: string) => { if (e instanceof NietIngelogd) onVerlopen(); else toast.error(tekst); };
-  useEffect(() => { fetchRides().then(setRides).catch((e) => fout(e, "Kan de server niet bereiken")); }, []);
-  const update = (r: Ride[], backup = false) => { setRides(r); saveRides(r, { backup }).catch((e) => fout(e, "Opslaan op de server mislukt")); };
+  // Stuurt wachtende wijzigingen naar de NAS en haalt de actuele lijst op.
+  const sync = useCallback(async (melding = true) => {
+    try {
+      const r = await synchroniseer();
+      setWachtend(aantalWachtend());
+      if (r.status === "ok") {
+        setRides(r.ritten);
+        if (offlineGeweest.current) { offlineGeweest.current = false; toast.success("De NAS is weer bereikbaar: je ritten zijn gesynchroniseerd."); }
+      } else if (aantalWachtend() > 0 && !offlineGeweest.current) {
+        offlineGeweest.current = true;
+        if (melding) toast.info("De NAS is niet bereikbaar. Je rit staat veilig op dit toestel en wordt later verstuurd.");
+      }
+    } catch (e) { fout(e, "Synchroniseren mislukt"); }
+  }, []);
+  useEffect(() => {
+    void sync(false);
+    const opnieuw = () => void sync(false);
+    const zichtbaar = () => { if (document.visibilityState === "visible") opnieuw(); };
+    window.addEventListener("online", opnieuw);
+    document.addEventListener("visibilitychange", zichtbaar);
+    const timer = setInterval(() => { if (aantalWachtend() > 0) opnieuw(); }, 20000);
+    return () => { window.removeEventListener("online", opnieuw); document.removeEventListener("visibilitychange", zichtbaar); clearInterval(timer); };
+  }, [sync]);
+  const update = (r: Ride[], backup = false) => { plaatsInWachtrij(rides, r, backup); setRides(r); setWachtend(aantalWachtend()); void sync(); };
+  const uitloggen = () => {
+    if (aantalWachtend() > 0) { toast.error("Er wachten nog ritten op de NAS. Log pas uit als ze verstuurd zijn."); return; }
+    onUitloggen();
+  };
   const totKm = rides.reduce((s, r) => s + r.km, 0);
   const totMin = rides.reduce((s, r) => s + r.minuten, 0);
 
@@ -94,11 +138,17 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
         </div>
       </header>
       <main className="mx-auto -mt-5 max-w-md px-4 md:max-w-2xl">
+        {wachtend > 0 && (
+          <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-xl border-2 border-foreground bg-card p-3 text-sm">
+            <span><b>{wachtend}</b> {wachtend === 1 ? "rit wacht" : "ritten wachten"} op de NAS. Ze staan veilig op dit toestel.</span>
+            <button onClick={() => void sync()} className="knop-accent shrink-0 rounded-lg px-3 py-1 text-sm font-bold">Nu proberen</button>
+          </div>
+        )}
         {tab === "nieuw" && <RitFormulier titel="Nieuwe rit" opslaanTekst="Rit opslaan" onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
         {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
         {tab === "overzicht" && <Overzicht rides={rides} />}
-        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={onUitloggen} />}
+        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} />}
       </main>
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
         <div className="mx-auto grid max-w-md grid-cols-4 md:max-w-2xl px-2 pt-2 pb-1">

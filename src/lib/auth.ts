@@ -26,3 +26,11 @@ export async function authPost(action: "login" | "setup" | "logout", body: { geb
     return "Server niet bereikbaar.";
   }
 }
+
+// Op dit toestel onthouden dat je ingelogd was, zodat de app ook zonder verbinding met de NAS opent.
+const SESSIE = "fietslog-sessie";
+export function onthoudSessie(naam: string | null) { try { localStorage.setItem(SESSIE, JSON.stringify({ naam })); } catch { /* niets */ } }
+export function vergeetSessie() { try { localStorage.removeItem(SESSIE); } catch { /* niets */ } }
+export function onthoudenSessie(): { naam: string | null } | null {
+  try { const v = localStorage.getItem(SESSIE); return v ? (JSON.parse(v) as { naam: string | null }) : null; } catch { return null; }
+}

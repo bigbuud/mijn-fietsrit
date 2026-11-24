@@ -10,6 +10,7 @@ const ritten = [
 describe("rit bewerken en wissen", () => {
   let puts: unknown[][];
   beforeEach(() => {
+    localStorage.clear();
     puts = [];
     Element.prototype.scrollIntoView = vi.fn();
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
