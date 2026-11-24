@@ -1,6 +1,6 @@
 # ══════════════════════════════════════════════════════════════════
 #  Fietslog – wielerdagboek            (Synology + Dockhand)
-#  App:      http://<ip-van-je-nas>:5252
+#  App:      http://<ip-van-je-nas>:5353
 #  Gegevens: /volume1/docker/fietslog   (ritten, account, sessiesleutel)
 #  Image:    wordt automatisch gebouwd door GitHub (.github/workflows/docker.yml)
 # ══════════════════════════════════════════════════════════════════
@@ -17,7 +17,7 @@ services:
     container_name: fietslog
     restart: unless-stopped
 
-    # Poort: buiten (NAS) : binnen (container)
+    # Poort: buiten (NAS) : binnen (container). Wil je een andere poort op de NAS, pas dan alleen het eerste getal aan.
     ports:
       - "5353:5252"
 
@@ -30,7 +30,7 @@ services:
 
     environment:
       TZ: Europe/Brussels
-      PORT: "5353"
+      PORT: "5252"
       DATA_DIR: /data
 
       # ── Inloggen ──────────────────────────────────────────────

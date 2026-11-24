@@ -9,8 +9,17 @@ export const GEVOEL: { v: Gevoel; e: string; score: number }[] = [
   { v: "zeer goed", e: "😄", score: 4 }, { v: "goed", e: "🙂", score: 3 },
   { v: "matig", e: "😐", score: 2 }, { v: "slecht", e: "😣", score: 1 },
 ];
-export interface Ride { id: string; datum: string; km: number; minuten: number; opmerking: string; weer: Weer; gevoel: Gevoel; }
+export interface Ride { id: string; datum: string; km: number; minuten: number; opmerking: string; weer: Weer | ""; gevoel: Gevoel | ""; }
 const KEY = "fietslog-ritten";
+/** Uniek id. crypto.randomUUID bestaat alleen op https/localhost; op http://nas:5252 niet, daarom een terugval. */
+export function nieuwId(): string {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  const b = new Uint8Array(16);
+  if (c && typeof c.getRandomValues === "function") c.getRandomValues(b);
+  else for (let i = 0; i < b.length; i++) b[i] = Math.floor(Math.random() * 256);
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+}
 export function loadRides(): Ride[] {
   try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
 }
@@ -30,8 +39,11 @@ export async function fetchRides(): Promise<Ride[]> {
   }
   return server;
 }
-export async function saveRides(r: Ride[]) {
-  const res = await fetch("/api/rides", { method: "PUT", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(r) });
+/** backup: true → de server bewaart eerst een kopie van de huidige ritten (bv. voor een import). */
+export async function saveRides(r: Ride[], opties: { backup?: boolean } = {}) {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (opties.backup) headers["x-backup"] = "1";
+  const res = await fetch("/api/rides", { method: "PUT", credentials: "same-origin", headers, body: JSON.stringify(r) });
   if (res.status === 401) throw new NietIngelogd();
   if (!res.ok) throw new Error("Opslaan mislukt");
 }

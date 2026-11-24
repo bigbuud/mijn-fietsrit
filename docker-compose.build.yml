@@ -10,7 +10,7 @@ services:
     container_name: fietslog
     restart: unless-stopped
     ports:
-      - "5252:5252"
+      - "5353:5252"
     user: "1026:100"
     volumes:
       - /volume1/docker/fietslog:/data

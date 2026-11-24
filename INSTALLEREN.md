@@ -16,7 +16,7 @@ Zelf bouwen uit de broncode:
 ```bash
 docker compose -f docker-compose.build.yml up -d --build
 ```
-De app draait dan op http://SERVER:5252 . Bij het eerste bezoek maak je een account aan.
+De app draait dan op http://SERVER:5353 (binnen de container is dat poort 5252). Bij het eerste bezoek maak je een account aan.
 
 Zonder Docker (Node 20+ en Bun):
 ```bash

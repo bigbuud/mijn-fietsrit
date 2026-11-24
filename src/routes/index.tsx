@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut } from "lucide-react";
+import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Fiets, Trui } from "@/components/Fiets";
 import { Inloggen } from "@/components/Inloggen";
+import { Importeren } from "@/components/Importeren";
 import { authPost, getStatus, NietIngelogd } from "@/lib/auth";
-import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, fetchRides, saveRides, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
+import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, fetchRides, nieuwId, saveRides, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -69,7 +70,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
   const [tab, setTab] = useState<Tab>("nieuw");
   const fout = (e: unknown, tekst: string) => { if (e instanceof NietIngelogd) onVerlopen(); else toast.error(tekst); };
   useEffect(() => { fetchRides().then(setRides).catch((e) => fout(e, "Kan de server niet bereiken")); }, []);
-  const update = (r: Ride[]) => { setRides(r); saveRides(r).catch((e) => fout(e, "Opslaan op de server mislukt")); };
+  const update = (r: Ride[], backup = false) => { setRides(r); saveRides(r, { backup }).catch((e) => fout(e, "Opslaan op de server mislukt")); };
   const totKm = rides.reduce((s, r) => s + r.km, 0);
   const totMin = rides.reduce((s, r) => s + r.minuten, 0);
 
@@ -92,8 +93,8 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
         </div>
       </header>
       <main className="mx-auto -mt-5 max-w-md px-4">
-        {tab === "nieuw" && <NieuweRit onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
-        {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} />}
+        {tab === "nieuw" && <RitFormulier titel="Nieuwe rit" opslaanTekst="Rit opslaan" onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
+        {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} onImport={(nieuw) => update([...rides, ...nieuw], true)} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
         {tab === "overzicht" && <Overzicht rides={rides} />}
       </main>
@@ -117,23 +118,30 @@ function Card({ children, title, className = "" }: { children: React.ReactNode; 
 const inputCls = "w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-lg text-foreground outline-none focus:border-foreground";
 const labelCls = "mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground";
 
-function NieuweRit({ onSave }: { onSave: (r: Ride) => void }) {
-  const [datum, setDatum] = useState(today());
-  const [km, setKm] = useState("");
-  const [uren, setUren] = useState("");
-  const [min, setMin] = useState("");
-  const [opm, setOpm] = useState("");
-  const [weer, setWeer] = useState<Weer>("zonnig");
-  const [gevoel, setGevoel] = useState<Gevoel>("goed");
+type RitFormProps = { start?: Ride; titel: string; opslaanTekst: string; onSave: (r: Ride) => void; onAnnuleer?: () => void; onVerwijder?: () => void };
+
+// Formulier voor een nieuwe rit én om een bestaande rit te bewerken.
+function RitFormulier({ start, titel, opslaanTekst, onSave, onAnnuleer, onVerwijder }: RitFormProps) {
+  const [datum, setDatum] = useState(start?.datum ?? today());
+  const [km, setKm] = useState(start ? String(start.km).replace(".", ",") : "");
+  const [uren, setUren] = useState(start ? String(Math.floor(start.minuten / 60)) : "");
+  const [min, setMin] = useState(start ? String(Math.round(start.minuten % 60)) : "");
+  const [opm, setOpm] = useState(start?.opmerking ?? "");
+  const [weer, setWeer] = useState<Weer | "">(start ? start.weer : "zonnig");
+  const [gevoel, setGevoel] = useState<Gevoel | "">(start ? start.gevoel : "goed");
   const k = parseFloat(km.replace(",", "."));
   const t = (parseInt(uren || "0") || 0) * 60 + (parseInt(min || "0") || 0);
   const submit = () => {
     if (!k || k <= 0) { toast.error("Vul de afstand in"); return; }
     if (t <= 0) { toast.error("Vul de tijd in"); return; }
-    onSave({ id: crypto.randomUUID(), datum, km: k, minuten: t, opmerking: opm.trim(), weer, gevoel });
+    try {
+      onSave({ id: start?.id ?? nieuwId(), datum, km: k, minuten: t, opmerking: opm.trim(), weer, gevoel });
+    } catch {
+      toast.error("Opslaan is niet gelukt. Probeer het opnieuw.");
+    }
   };
   return (
-    <Card title="Nieuwe rit">
+    <Card title={titel}>
       <div className="space-y-4">
         <label className="block"><span className={labelCls}>Datum</span><input type="date" className={inputCls} value={datum} onChange={(e) => setDatum(e.target.value)} /></label>
         <label className="block"><span className={labelCls}>Afstand (km)</span><input inputMode="decimal" placeholder="bv. 42,5" className={inputCls} value={km} onChange={(e) => setKm(e.target.value)} /></label>
@@ -142,11 +150,13 @@ function NieuweRit({ onSave }: { onSave: (r: Ride) => void }) {
           {k > 0 && t > 0 && <p className="mt-2 text-sm font-semibold text-muted-foreground">Gemiddeld: <span className="font-display text-xl text-foreground">{snelheid(k, t).toFixed(1).replace(".", ",")} km/u</span></p>}
         </div>
         <label className="block"><span className={labelCls}>Opmerking / route</span><textarea rows={2} placeholder="bv. langs de Schelde naar Temse" className={inputCls} value={opm} onChange={(e) => setOpm(e.target.value)} /></label>
-        <div><span className={labelCls}>Weer</span>
-          <div className="grid grid-cols-3 gap-2">{WEER.map((w) => <button key={w.v} onClick={() => setWeer(w.v)} className={`chip ${weer === w.v ? "chip-on" : ""}`}><span className="text-2xl">{w.e}</span>{w.v}</button>)}</div></div>
-        <div><span className={labelCls}>Hoe voelde het?</span>
-          <div className="grid grid-cols-4 gap-2">{GEVOEL.map((g) => <button key={g.v} onClick={() => setGevoel(g.v)} className={`chip ${gevoel === g.v ? "chip-on" : ""}`}><span className="text-2xl">{g.e}</span>{g.v}</button>)}</div></div>
-        <button onClick={submit} className="knop-geel font-display w-full rounded-xl py-3 text-2xl uppercase">Rit opslaan</button>
+        <div><span className={labelCls}>Weer {start && <span className="font-normal normal-case">(tik opnieuw om te wissen)</span>}</span>
+          <div className="grid grid-cols-3 gap-2">{WEER.map((w) => <button key={w.v} type="button" onClick={() => setWeer(weer === w.v ? "" : w.v)} className={`chip ${weer === w.v ? "chip-on" : ""}`}><span className="text-2xl">{w.e}</span>{w.v}</button>)}</div></div>
+        <div><span className={labelCls}>Hoe voelde het? {start && <span className="font-normal normal-case">(tik opnieuw om te wissen)</span>}</span>
+          <div className="grid grid-cols-4 gap-2">{GEVOEL.map((g) => <button key={g.v} type="button" onClick={() => setGevoel(gevoel === g.v ? "" : g.v)} className={`chip ${gevoel === g.v ? "chip-on" : ""}`}><span className="text-2xl">{g.e}</span>{g.v}</button>)}</div></div>
+        <button onClick={submit} className="knop-geel font-display w-full rounded-xl py-3 text-2xl uppercase">{opslaanTekst}</button>
+        {onAnnuleer && <button onClick={onAnnuleer} className="w-full rounded-xl border-2 border-foreground py-2 text-lg font-bold">Annuleren</button>}
+        {onVerwijder && <button onClick={onVerwijder} className="flex w-full items-center justify-center gap-2 py-1 text-sm font-bold" style={{ color: "var(--rood)" }}><Trash2 className="h-4 w-4" />Deze rit verwijderen</button>}
       </div>
     </Card>
   );
@@ -154,23 +164,37 @@ function NieuweRit({ onSave }: { onSave: (r: Ride) => void }) {
 
 const em = (list: { v: string; e: string }[], v: string) => list.find((x) => x.v === v)?.e ?? "";
 
-function Ritten({ rides, onDelete }: { rides: Ride[]; onDelete: (id: string) => void }) {
+function Ritten({ rides, onDelete, onEdit, onImport }: { rides: Ride[]; onDelete: (id: string) => void; onEdit: (r: Ride) => void; onImport: (nieuw: Ride[]) => void }) {
+  const [importOpen, setImportOpen] = useState(false);
+  const [bewerkId, setBewerkId] = useState<string | null>(null);
   const sorted = [...rides].sort((a, b) => b.datum.localeCompare(a.datum));
   const nummer = new Map([...rides].sort((a, b) => a.datum.localeCompare(b.datum)).map((r, i) => [r.id, i + 1]));
-  if (!sorted.length) return <Card><p className="text-muted-foreground">Nog geen ritten. Voeg je eerste rit toe via “Nieuw”.</p></Card>;
+  const importBlok = importOpen
+    ? <Importeren bestaand={rides} onImport={onImport} onSluit={() => setImportOpen(false)} />
+    : <button onClick={() => setImportOpen(true)} className="font-display mb-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-foreground bg-card py-2 text-xl uppercase text-foreground"><Upload className="h-5 w-5" />Oude ritten importeren</button>;
+  if (!sorted.length) return <>{importBlok}<Card><p className="text-muted-foreground">Nog geen ritten. Voeg je eerste rit toe via “Nieuw”, of importeer je oude ritten uit Excel.</p></Card></>;
   return <>
+    {importBlok}
     <button onClick={() => downloadCsv(rides)} className="knop-geel font-display mb-4 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xl uppercase"><Download className="h-5 w-5" />Download als CSV</button>
-    {sorted.map((r) => (
-      <section key={r.id} className="rit-kaart mb-4 rounded-2xl border border-border bg-card p-5 pl-7 shadow-card" style={{ "--strook": GEVOEL_KLEUR[r.gevoel] } as React.CSSProperties}>
+    {sorted.map((r) => r.id === bewerkId ? (
+      <div key={r.id} ref={(el) => el?.scrollIntoView({ block: "start", behavior: "smooth" })}>
+        <RitFormulier start={r} titel="Rit bewerken" opslaanTekst="Wijzigingen opslaan" onSave={(nieuw) => { onEdit(nieuw); setBewerkId(null); }} onAnnuleer={() => setBewerkId(null)}
+          onVerwijder={() => { if (confirm("Deze rit verwijderen?")) { onDelete(r.id); setBewerkId(null); } }} />
+      </div>
+    ) : (
+      <section key={r.id} className="rit-kaart mb-4 rounded-2xl border border-border bg-card p-5 pl-7 shadow-card" style={{ "--strook": r.gevoel ? GEVOEL_KLEUR[r.gevoel] : "var(--muted-foreground)" } as React.CSSProperties}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Rit {nummer.get(r.id)} · {new Date(r.datum).toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
             <p className="font-display text-4xl leading-tight text-card-foreground">{r.km.toFixed(1)} km</p>
             <p className="text-sm font-semibold text-muted-foreground">{fmtTijd(r.minuten)} · {snelheid(r.km, r.minuten).toFixed(1)} km/u</p>
             {r.opmerking && <p className="mt-2 break-words text-foreground">{r.opmerking}</p>}
-            <p className="mt-2 text-sm">{em(WEER, r.weer)} {r.weer} &nbsp; {em(GEVOEL, r.gevoel)} {r.gevoel}</p>
+            {(r.weer || r.gevoel) && <p className="mt-2 text-sm">{r.weer && `${em(WEER, r.weer)} ${r.weer}`} &nbsp; {r.gevoel && `${em(GEVOEL, r.gevoel)} ${r.gevoel}`}</p>}
           </div>
-          <button aria-label="Verwijderen" onClick={() => confirm("Deze rit verwijderen?") && onDelete(r.id)} className="p-2 text-muted-foreground"><Trash2 className="h-5 w-5" /></button>
+          <div className="flex shrink-0">
+            <button aria-label="Bewerken" onClick={() => setBewerkId(r.id)} className="p-2.5 text-muted-foreground"><Pencil className="h-5 w-5" /></button>
+            <button aria-label="Verwijderen" onClick={() => confirm("Deze rit verwijderen?") && onDelete(r.id)} className="p-2.5 text-muted-foreground"><Trash2 className="h-5 w-5" /></button>
+          </div>
         </div>
       </section>
     ))}

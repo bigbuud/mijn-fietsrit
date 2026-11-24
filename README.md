@@ -19,7 +19,7 @@ chown 1026:100 /volume1/docker/fietslog
 **In Dockhand**
 1. Maak een **nieuwe stack vanuit Git**: repository `https://github.com/bigbuud/mijn-fietsrit`, branch `main`, compose-bestand `docker-compose.yml`.
 2. Optioneel: zet bij de omgevingsvariabelen `APP_USERNAME` en `APP_PASSWORD`. Doe je dat niet, dan maak je bij het eerste bezoek zelf een account aan. **Doe dat meteen na het opstarten**, zeker als de app van buitenaf bereikbaar is.
-3. Deploy. De app staat op **http://SERVER:5252**.
+3. Deploy. De app staat op **http://SERVER:5353**.
 
 **Updaten:** push je wijzigingen naar `main`, wacht tot de Action groen is en laat Dockhand de stack opnieuw uitrollen. `pull_policy: always` haalt dan de nieuwste image op. Ritten, account en sessies blijven behouden omdat ze in het volume `fietslog-data` staan.
 
@@ -34,6 +34,17 @@ Liever zelf bouwen op de server? Gebruik dan `docker-compose.build.yml` als comp
 - Zet de app **achter HTTPS** (reverse proxy, bv. Synology: Configuratiescherm → Aanmeldingsportaal → Geavanceerd → Reverse proxy, met certificaat). Op http-adressen wordt de cookie zonder `Secure`-vlag gezet en kan het wachtwoord onderschept worden op openbare wifi.
 - Tip: kies in de browser "Toevoegen aan beginscherm" voor een app-icoon.
 
+## Oude ritten importeren (Excel of CSV)
+
+Tab **Ritten** → **Oude ritten importeren** → kies een `.xlsx`- of `.csv`-bestand. Alles wordt in de browser gelezen en je ziet eerst een controle; er wordt niets bewaard voordat je op "importeren" drukt.
+
+- Kolommen worden herkend aan de kopregel (datum, km/afstand, tijd/duur, opmerking/route, weer, gevoel, snelheid). De kopregel mag onder een titel staan. Je kunt de koppeling zelf aanpassen. Heeft het bestand meerdere tabbladen, dan kies je er één.
+- Datums als `3/11/2024`, `2024-11-03`, `3 nov 2024` (dag eerst), kilometers als `42,5` of `61,2 km`, en tijd als `1:40`, `1u40`, `3h05m`, `100 min`, `1,5 uur` of een Excel-tijd.
+- Datum, afstand en tijd zijn nodig; opmerking, weer en gevoel mogen ontbreken. Weer of gevoel dat niet herkend wordt, komt in de opmerking terecht. Ritten zonder tijd kun je laten schatten met een gemiddelde snelheid (ze krijgen dan "(tijd geschat)" in de opmerking).
+- Ritten die al bestaan (zelfde datum, afstand en tijd) worden overgeslagen. Onleesbare rijen worden getoond met rijnummer en reden en niet geïmporteerd.
+- Voor het importeren bewaart de server een back-up van de huidige ritten in `/data` (`rides.backup-<datum>.json`, de laatste 10 blijven staan).
+- Een voorbeeldbestand om te downloaden staat in het importscherm. Oude `.xls` eerst opslaan als `.xlsx`.
+
 ## Gegevens en back-up (Synology)
 
 Alles staat in **`/volume1/docker/fietslog`** op de NAS: `rides.json` (ritten), `user.json` (account) en `session.key` (sessiesleutel). Neem die map op in je back-up (bv. Hyper Backup) en je kunt de app altijd herstellen: kopieer de map terug en start de stack.
@@ -46,7 +57,7 @@ De container draait als gebruiker `1026:100` (`user:` in `docker-compose.yml`). 
 | --- | --- |
 | `APP_USERNAME`, `APP_PASSWORD` | Vast account (leeg laten = eerste-keer-scherm) |
 | `SESSION_SECRET` | Eigen sleutel voor sessies (min. 16 tekens, optioneel) |
-| `PORT`, `DATA_DIR` | Poort in de container (5252) en datamap (`/data`) |
+| `PORT`, `DATA_DIR` | Poort binnen de container (5252, niet aanpassen) en datamap (`/data`) |
 
 ## Ontwikkelen
 

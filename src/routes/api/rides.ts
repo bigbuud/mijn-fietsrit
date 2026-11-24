@@ -40,6 +40,15 @@ export const Route = createFileRoute("/api/rides")({
         if (!Array.isArray(body) || !body.every(isRit)) return a.json({ fout: "Ongeldige gegevens" }, 400);
         const { dir, file } = await paths();
         await fs.mkdir(dir, { recursive: true });
+        if (request.headers.get("x-backup") === "1") {
+          // Voor een import: kopie van de huidige ritten bewaren (laatste 10 blijven staan)
+          const stempel = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "").replace("T", "-");
+          try {
+            await fs.copyFile(file, `${dir}/rides.backup-${stempel}.json`);
+            const oud = (await fs.readdir(dir)).filter((f) => /^rides\.backup-.*\.json$/.test(f)).sort();
+            for (const f of oud.slice(0, -10)) await fs.unlink(`${dir}/${f}`);
+          } catch { /* nog geen ritten: niets om te bewaren */ }
+        }
         await fs.writeFile(file + ".tmp", JSON.stringify(body, null, 2));
         await fs.rename(file + ".tmp", file);
         return a.json({ ok: true }, 200, sessie.setCookie);
