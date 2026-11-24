@@ -36,7 +36,7 @@ const GEVOEL_KLEUR: Record<Gevoel, string> = {
 function Splash({ children }: { children?: React.ReactNode }) {
   return (
     <div className="hero-band flex min-h-screen flex-col items-center justify-center rounded-none px-6 text-center">
-      <Fiets className="h-24 w-auto text-[var(--geel)]" />
+      <Fiets className="h-24 w-auto text-[color:var(--hero-accent)]" />
       <p className="font-display mt-2 text-4xl uppercase tracking-wide">Fietslog</p>
       {children}
     </div>
@@ -55,11 +55,11 @@ function App() {
       .catch(() => setAuth("offline"));
   useEffect(() => { void check(); }, []);
 
-  if (auth === "laden") return <Splash><p className="mt-3 text-sm text-white/60">Even laden…</p></Splash>;
+  if (auth === "laden") return <Splash><p className="mt-3 text-sm text-[color:var(--hero-fg)]/60">Even laden…</p></Splash>;
   if (auth === "offline") return (
     <Splash>
-      <p className="mt-3 max-w-xs text-white/80">De server is niet bereikbaar. Controleer je verbinding en probeer opnieuw.</p>
-      <button onClick={() => { setAuth("laden"); void check(); }} className="knop-geel font-display mt-5 rounded-xl px-8 py-2 text-xl uppercase">Opnieuw proberen</button>
+      <p className="mt-3 max-w-xs text-[color:var(--hero-fg)]/80">De server is niet bereikbaar. Controleer je verbinding en probeer opnieuw.</p>
+      <button onClick={() => { setAuth("laden"); void check(); }} className="knop-accent font-display mt-5 rounded-xl px-8 py-2 text-xl uppercase">Opnieuw proberen</button>
     </Splash>
   );
   if (auth === "login" || auth === "setup") return <><Inloggen eersteKeer={auth === "setup"} onKlaar={() => void check()} /><Toaster position="top-center" /></>;
@@ -78,18 +78,18 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
   return (
     <div className="min-h-screen bg-background pb-28">
       <header className="hero-band px-5 pb-12">
-        <Fiets className="pointer-events-none absolute -right-6 bottom-6 h-24 w-auto text-[var(--geel)] opacity-20" />
+        <Fiets className="pointer-events-none absolute -right-6 bottom-6 h-24 w-auto text-[color:var(--hero-accent)] opacity-20" />
         <div className="relative mx-auto max-w-md md:max-w-2xl">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-display text-2xl uppercase tracking-wide text-[var(--geel)]">Fietslog</p>
-              {naam && <p className="text-xs text-white/60">Hoi {naam}!</p>}
+              <p className="font-display text-2xl uppercase tracking-wide text-[color:var(--hero-accent)]">Fietslog</p>
+              {naam && <p className="text-xs text-[color:var(--hero-fg)]/60">Hoi {naam}!</p>}
             </div>
-            <button onClick={() => setTab("instellingen")} aria-label="Instellingen" className={`rounded-full p-2 active:bg-white/20 ${tab === "instellingen" ? "bg-[var(--geel)] text-black" : "bg-white/10 text-white/80"}`}><Settings className="h-5 w-5" /></button>
+            <button onClick={() => setTab("instellingen")} aria-label="Instellingen" className={`rounded-full p-2 active:bg-[color:var(--hero-fg)]/20 ${tab === "instellingen" ? "bg-[color:var(--hero-fg)] text-[color:var(--hero-2)]" : "bg-[color:var(--hero-fg)]/10 text-[color:var(--hero-fg)]/80"}`}><Settings className="h-5 w-5" /></button>
           </div>
           <div className="mt-4 flex items-end gap-4">
             <div className="bib"><span className="font-display text-6xl leading-none">{totKm.toFixed(0)}</span><span className="font-display ml-1 text-2xl">km</span></div>
-            <div className="pb-1 text-sm text-white/80"><p><b className="text-white">{rides.length}</b> ritten</p><p><b className="text-white">{fmtTijd(totMin)}</b> in het zadel</p></div>
+            <div className="pb-1 text-sm text-[color:var(--hero-fg)]/80"><p><b className="text-[color:var(--hero-fg)]">{rides.length}</b> ritten</p><p><b className="text-[color:var(--hero-fg)]">{fmtTijd(totMin)}</b> in het zadel</p></div>
           </div>
         </div>
       </header>
@@ -103,7 +103,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
         <div className="mx-auto grid max-w-md grid-cols-4 md:max-w-2xl px-2 pt-2 pb-1">
           {([["nieuw", Plus, "Nieuw"], ["ritten", List, "Ritten"], ["grafieken", BarChart3, "Grafieken"], ["overzicht", CalendarDays, "Overzicht"]] as const).map(([k, Icon, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={`flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-wide ${tab === k ? "text-[var(--geel)]" : "text-white/60"}`}>
+            <button key={k} onClick={() => setTab(k)} className={`flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-wide ${tab === k ? "text-[var(--rosa)]" : "text-white/60"}`}>
               <span className={`rounded-full px-4 py-1 ${tab === k ? "nav-actief" : ""}`}><Icon className="h-6 w-6" /></span>{l}
             </button>
           ))}
@@ -156,7 +156,7 @@ function RitFormulier({ start, titel, opslaanTekst, onSave, onAnnuleer, onVerwij
           <div className="grid grid-cols-3 gap-2">{WEER.map((w) => <button key={w.v} type="button" onClick={() => setWeer(weer === w.v ? "" : w.v)} className={`chip ${weer === w.v ? "chip-on" : ""}`}><span className="text-2xl">{w.e}</span>{w.v}</button>)}</div></div>
         <div><span className={labelCls}>Hoe voelde het? {start && <span className="font-normal normal-case">(tik opnieuw om te wissen)</span>}</span>
           <div className="grid grid-cols-4 gap-2">{GEVOEL.map((g) => <button key={g.v} type="button" onClick={() => setGevoel(gevoel === g.v ? "" : g.v)} className={`chip ${gevoel === g.v ? "chip-on" : ""}`}><span className="text-2xl">{g.e}</span>{g.v}</button>)}</div></div>
-        <button onClick={submit} className="knop-geel font-display w-full rounded-xl py-3 text-2xl uppercase">{opslaanTekst}</button>
+        <button onClick={submit} className="knop-accent font-display w-full rounded-xl py-3 text-2xl uppercase">{opslaanTekst}</button>
         {onAnnuleer && <button onClick={onAnnuleer} className="w-full rounded-xl border-2 border-foreground py-2 text-lg font-bold">Annuleren</button>}
         {onVerwijder && <button onClick={onVerwijder} className="flex w-full items-center justify-center gap-2 py-1 text-sm font-bold" style={{ color: "var(--rood)" }}><Trash2 className="h-4 w-4" />Deze rit verwijderen</button>}
       </div>
@@ -192,7 +192,7 @@ function Instellingen({ naam, rides, onImport, onUitloggen }: { naam: string | n
         {importOpen
           ? <Importeren bestaand={rides} onImport={onImport} onSluit={() => setImportOpen(false)} />
           : <button onClick={() => setImportOpen(true)} className={knop}><Upload className="h-5 w-5" />Oude ritten importeren</button>}
-        <button onClick={() => downloadCsv(rides)} disabled={!rides.length} className="knop-geel font-display flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase disabled:opacity-50"><Download className="h-5 w-5" />Download als CSV</button>
+        <button onClick={() => downloadCsv(rides)} disabled={!rides.length} className="knop-accent font-display flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase disabled:opacity-50"><Download className="h-5 w-5" />Download als CSV</button>
       </div>
     </Card>
     <Card title="Account">
@@ -247,7 +247,7 @@ function Grafieken({ rides }: { rides: Ride[] }) {
       <ResponsiveContainer width="100%" height={220}><BarChart data={perMaand}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="m" fontSize={11} stroke="var(--muted-foreground)" /><YAxis fontSize={11} width={35} stroke="var(--muted-foreground)" /><Tooltip contentStyle={tooltipStyle} /><Bar dataKey="km" fill="var(--chart-1)" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer>
     </Card>
     <Card title="Snelheid (laatste ritten)">
-      <ResponsiveContainer width="100%" height={200}><LineChart data={laatste}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="d" fontSize={11} stroke="var(--muted-foreground)" /><YAxis fontSize={11} width={35} stroke="var(--muted-foreground)" domain={["auto", "auto"]} /><Tooltip contentStyle={tooltipStyle} /><Line dataKey="snelheid" stroke="var(--chart-2)" strokeWidth={3} dot={{ r: 4, fill: "var(--geel)", stroke: "var(--chart-2)" }} /></LineChart></ResponsiveContainer>
+      <ResponsiveContainer width="100%" height={200}><LineChart data={laatste}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="d" fontSize={11} stroke="var(--muted-foreground)" /><YAxis fontSize={11} width={35} stroke="var(--muted-foreground)" domain={["auto", "auto"]} /><Tooltip contentStyle={tooltipStyle} /><Line dataKey="snelheid" stroke="var(--chart-2)" strokeWidth={3} dot={{ r: 4, fill: "var(--rosa)", stroke: "var(--chart-2)" }} /></LineChart></ResponsiveContainer>
     </Card>
     <Card title="Gevoel">
       <ResponsiveContainer width="100%" height={210}><PieChart><Pie data={gevoel} dataKey="value" nameKey="name" outerRadius={78} innerRadius={34} paddingAngle={2} stroke="var(--card)" label={(e) => e.name}>{gevoel.map((g) => <Cell key={g.name} fill={GEVOEL_KLEUR[g.name as Gevoel]} />)}</Pie><Tooltip contentStyle={tooltipStyle} /></PieChart></ResponsiveContainer>
@@ -274,9 +274,9 @@ function Truien({ rs }: { rs: Ride[] }) {
   return (
     <Card title="Truien">
       <div>
-        <div className={rij}><Trui kleur="#ffd60a" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Gele trui · langste rit</p><p className="font-display text-2xl leading-tight">{langste.km.toFixed(1)} km <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(langste.datum)}</span></p></div></div>
+        <div className={rij}><Trui kleur="#f4a3c1" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Roze trui · langste rit</p><p className="font-display text-2xl leading-tight">{langste.km.toFixed(1)} km <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(langste.datum)}</span></p></div></div>
         <div className={rij}><Trui kleur="#2faa5f" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Groene trui · snelste rit</p><p className="font-display text-2xl leading-tight">{snelheid(snelste.km, snelste.minuten).toFixed(1)} km/u <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(snelste.datum)}</span></p></div></div>
-        <div className={rij}><Trui kleur="#ffffff" bolletjes className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Bolletjestrui · beste maand</p><p className="font-display text-2xl leading-tight">{bergkoning.km.toFixed(0)} km <span className="text-sm font-semibold not-italic text-muted-foreground">in {bergkoning.m}</span></p></div></div>
+        <div className={rij}><Trui kleur="#3f7fe0" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Blauwe trui · beste maand</p><p className="font-display text-2xl leading-tight">{bergkoning.km.toFixed(0)} km <span className="text-sm font-semibold not-italic text-muted-foreground">in {bergkoning.m}</span></p></div></div>
       </div>
     </Card>
   );

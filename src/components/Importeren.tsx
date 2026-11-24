@@ -109,7 +109,7 @@ export function Importeren({ bestaand, onImport, onSluit }: { bestaand: Ride[]; 
         <div className="space-y-3 text-sm text-foreground">
           <p>Kies een Excel- (<b>.xlsx</b>) of CSV-bestand met je oude ritten. Je ziet eerst een controle; er wordt niets bewaard voordat je op “Importeren” drukt.</p>
           <p className="text-muted-foreground">Handig: een kolom met de <b>datum</b> en de <b>afstand (km)</b>, liefst ook de <b>tijd</b>. Opmerking, weer en gevoel mogen ontbreken.</p>
-          <label className="knop-geel font-display flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase">
+          <label className="knop-accent font-display flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase">
             <FileUp className="h-5 w-5" />{bezig ? "Bezig met lezen…" : "Bestand kiezen"}
             <input type="file" className="sr-only" accept=".xlsx,.xls,.csv,.txt,text/csv" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
           </label>
@@ -186,7 +186,7 @@ export function Importeren({ bestaand, onImport, onSluit }: { bestaand: Ride[]; 
             </div>
           )}
 
-          <button onClick={importeer} disabled={!klaar.length} className="knop-geel font-display w-full rounded-xl py-3 text-2xl uppercase disabled:opacity-50">
+          <button onClick={importeer} disabled={!klaar.length} className="knop-accent font-display w-full rounded-xl py-3 text-2xl uppercase disabled:opacity-50">
             {klaar.length ? `${klaar.length} ${klaar.length === 1 ? "rit" : "ritten"} importeren` : "Niets om te importeren"}
           </button>
           <button onClick={() => { setBladen([]); setKoppeling(null); setFout(""); }} className="w-full text-center text-sm font-semibold underline">Ander bestand kiezen</button>

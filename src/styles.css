@@ -75,8 +75,8 @@
 }
 
 /*
- * Wielrenthema "Fietslog"
- * asfalt (zwart-blauw) · maillot jaune (geel) · bolletjesrood · groene trui
+ * Wielrenthema "Fietslog" – Italiaanse editie
+ * maglia rosa (roze) · tricolore (groen-wit-rood) · asfalt (zwart-blauw)
  */
 :root {
   --radius: 0.9rem;
@@ -86,6 +86,14 @@
   --rood: oklch(0.56 0.22 27);
   --groen: oklch(0.62 0.17 150);
   --oranje: oklch(0.72 0.17 58);
+  --rosa: oklch(0.8 0.12 4);
+  --it-groen: oklch(0.52 0.14 155);
+  --it-rood: oklch(0.55 0.21 25);
+  --hero-1: oklch(0.945 0.04 5);
+  --hero-2: oklch(0.87 0.09 5);
+  --hero-fg: oklch(0.22 0.02 262);
+  --hero-accent: oklch(0.45 0.13 155);
+  --hero-knop: oklch(1 0 0 / 55%);
 
   --background: oklch(0.965 0.012 95);
   --foreground: oklch(0.2 0.02 262);
@@ -93,7 +101,7 @@
   --card-foreground: oklch(0.2 0.02 262);
   --popover: oklch(0.995 0.004 95);
   --popover-foreground: oklch(0.2 0.02 262);
-  --primary: var(--geel);
+  --primary: var(--rosa);
   --primary-foreground: oklch(0.2 0.02 262);
   --secondary: oklch(0.93 0.02 95);
   --secondary-foreground: oklch(0.2 0.02 262);
@@ -147,6 +155,10 @@
     --chart-5: oklch(0.8 0.1 240);
     --shadow-card: 0 10px 24px -14px oklch(0 0 0 / 80%);
     --nav-bg: oklch(0.13 0.015 262 / 96%);
+    --hero-1: oklch(0.47 0.09 5);
+    --hero-2: oklch(0.37 0.08 5);
+    --hero-fg: oklch(0.98 0.01 95);
+    --hero-accent: oklch(0.9 0.1 150);
     color-scheme: dark;
   }
 }
@@ -171,6 +183,10 @@
   --chart-5: oklch(0.8 0.1 240);
   --shadow-card: 0 10px 24px -14px oklch(0 0 0 / 80%);
   --nav-bg: oklch(0.13 0.015 262 / 96%);
+  --hero-1: oklch(0.47 0.09 5);
+  --hero-2: oklch(0.37 0.08 5);
+  --hero-fg: oklch(0.98 0.01 95);
+  --hero-accent: oklch(0.9 0.1 150);
   color-scheme: dark;
 }
 :root[data-theme="licht"] { color-scheme: light; }
@@ -201,17 +217,18 @@
   .hero-band {
     position: relative;
     background:
-      linear-gradient(115deg, transparent 0 62%, oklch(0.88 0.175 95 / 10%) 62% 70%, transparent 70% 76%, oklch(0.56 0.22 27 / 14%) 76% 82%, transparent 82%),
-      linear-gradient(180deg, var(--asfalt-2), var(--asfalt));
-    color: oklch(0.97 0.01 95);
+      linear-gradient(115deg, transparent 0 62%, oklch(0.52 0.14 155 / 12%) 62% 70%, transparent 70% 76%, oklch(0.55 0.21 25 / 14%) 76% 82%, transparent 82%),
+      linear-gradient(180deg, var(--hero-1), var(--hero-2));
+    color: var(--hero-fg);
     padding-top: calc(env(safe-area-inset-top, 0px) + 1.25rem);
     border-radius: 0 0 1.75rem 1.75rem;
     overflow: hidden;
   }
+  /* Tricolore-streep: groen · wit · rood */
   .hero-band::after {
-    content: ""; position: absolute; left: 0; right: 0; bottom: 14px; height: 4px;
-    background: repeating-linear-gradient(90deg, var(--geel) 0 26px, transparent 26px 50px);
-    opacity: .85;
+    content: ""; position: absolute; left: 0; right: 0; bottom: 14px; height: 5px;
+    background: repeating-linear-gradient(90deg, #009246 0 24px, #ffffff 24px 48px, #ce2b37 48px 72px);
+    opacity: .9;
   }
 
   /* Rugnummer */
@@ -231,15 +248,15 @@
   .rit-kaart { position: relative; overflow: hidden; padding-left: 1.6rem; }
   .rit-kaart::before { content: ""; position: absolute; inset: 0 auto 0 0; width: .6rem; background: var(--strook, var(--geel)); }
 
-  .kop-streep { display: inline-block; width: .7rem; height: 1.15rem; margin-right: .5rem; background: var(--geel); transform: skewX(-18deg); border-radius: 2px; vertical-align: -2px; box-shadow: .35rem 0 0 var(--rood); }
+  .kop-streep { display: inline-block; width: .5rem; height: 1.15rem; margin-right: 1.15rem; background: var(--it-groen); transform: skewX(-18deg); border-radius: 2px; vertical-align: -2px; box-shadow: .4rem 0 0 oklch(0.98 0 0), .4rem 0 0 1px var(--border), .8rem 0 0 var(--it-rood); }
 
   .chip { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.65rem .25rem; border-radius:.9rem; border:2px solid var(--border); background:var(--background); font-size:.8rem; font-weight:600; color:var(--foreground); transition: transform .08s; }
   .chip:active { transform: scale(.97); }
-  .chip-on { border-color: var(--foreground); background: color-mix(in oklab, var(--geel) 38%, var(--background)); box-shadow: 0 3px 0 var(--foreground); }
+  .chip-on { border-color: var(--foreground); background: color-mix(in oklab, var(--rosa) 45%, var(--background)); box-shadow: 0 3px 0 var(--foreground); }
 
-  .knop-geel { background: var(--geel); color: oklch(0.2 0.02 262); box-shadow: 0 4px 0 oklch(0.2 0.02 262); border: 2px solid oklch(0.2 0.02 262); }
-  .knop-geel:active { transform: translateY(3px); box-shadow: 0 1px 0 oklch(0.2 0.02 262); }
+  .knop-accent { background: var(--rosa); color: oklch(0.2 0.02 262); box-shadow: 0 4px 0 oklch(0.2 0.02 262); border: 2px solid oklch(0.2 0.02 262); }
+  .knop-accent:active { transform: translateY(3px); box-shadow: 0 1px 0 oklch(0.2 0.02 262); }
 
   .nav-bar { background: var(--nav-bg); backdrop-filter: blur(10px); padding-bottom: env(safe-area-inset-bottom, 0px); }
-  .nav-actief { background: var(--geel); color: oklch(0.2 0.02 262); }
+  .nav-actief { background: var(--rosa); color: oklch(0.2 0.02 262); }
 }
