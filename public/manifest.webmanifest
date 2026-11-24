@@ -1,0 +1,17 @@
+{
+  "name": "Fietslog – wielerdagboek",
+  "short_name": "Fietslog",
+  "description": "Houd je fietsritten bij: afstand, tijd, weer en gevoel.",
+  "lang": "nl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1d2230",
+  "theme_color": "#1d2230",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

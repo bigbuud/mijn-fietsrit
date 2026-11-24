@@ -1,0 +1,40 @@
+# ══════════════════════════════════════════════════════════════════
+#  Fietslog – wielerdagboek            (Synology + Dockhand)
+#  App:      http://<ip-van-je-nas>:5252
+#  Gegevens: /volume1/docker/fietslog   (ritten, account, sessiesleutel)
+#  Image:    wordt automatisch gebouwd door GitHub (.github/workflows/docker.yml)
+# ══════════════════════════════════════════════════════════════════
+#
+#  VOOR DE EERSTE START (eenmalig, via SSH of File Station):
+#    mkdir -p /volume1/docker/fietslog
+#    chown 1026:100 /volume1/docker/fietslog
+#  (1026:100 = gebruiker/groep van de container, zie "user:" hieronder)
+
+services:
+  fietslog:
+    image: ghcr.io/bigbuud/mijn-fietsrit:latest
+    pull_policy: always            # bij elke (her)deploy de nieuwste versie ophalen
+    container_name: fietslog
+    restart: unless-stopped
+
+    # Poort: buiten (NAS) : binnen (container)
+    ports:
+      - "5252:5252"
+
+    # Het proces draait met deze gebruiker en groep, zodat de bestanden in
+    # /volume1/docker/fietslog van jouw Synology-gebruiker blijven.
+    user: "1026:100"
+
+    volumes:
+      - /volume1/docker/fietslog:/data
+
+    environment:
+      TZ: Europe/Brussels
+      PORT: "5252"
+      DATA_DIR: /data
+
+      # ── Inloggen ──────────────────────────────────────────────
+      # Niets invullen = bij het eerste bezoek maak je zelf een account aan.
+      # Of vul hier (of in Dockhand bij "Environment variables") vaste inloggegevens in:
+      APP_USERNAME: ${APP_USERNAME:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}

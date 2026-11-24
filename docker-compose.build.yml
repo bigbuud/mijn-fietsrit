@@ -1,0 +1,22 @@
+# Fietslog – zelf bouwen uit de broncode (alternatief voor docker-compose.yml)
+# Zelfde instellingen als docker-compose.yml, maar de image wordt op de NAS gebouwd
+# (de eerste keer kan dat enkele minuten duren). Maak eerst de map aan:
+#    mkdir -p /volume1/docker/fietslog && chown 1026:100 /volume1/docker/fietslog
+
+services:
+  fietslog:
+    build: .
+    image: fietslog:local
+    container_name: fietslog
+    restart: unless-stopped
+    ports:
+      - "5252:5252"
+    user: "1026:100"
+    volumes:
+      - /volume1/docker/fietslog:/data
+    environment:
+      TZ: Europe/Brussels
+      PORT: "5252"
+      DATA_DIR: /data
+      APP_USERNAME: ${APP_USERNAME:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}

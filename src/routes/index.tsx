@@ -1,0 +1,249 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { Fiets, Trui } from "@/components/Fiets";
+import { Inloggen } from "@/components/Inloggen";
+import { authPost, getStatus, NietIngelogd } from "@/lib/auth";
+import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, fetchRides, saveRides, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Fietslog – wielerdagboek" },
+      { name: "description", content: "Houd je fietsritten bij: afstand, tijd, weer en gevoel, met grafieken en overzichten." },
+      { property: "og:title", content: "Fietslog – wielerdagboek" },
+      { property: "og:description", content: "Houd je fietsritten bij met grafieken en maand- en jaaroverzichten." },
+      { property: "og:type", content: "website" },
+    ],
+  }),
+  component: App,
+});
+
+type Tab = "nieuw" | "ritten" | "grafieken" | "overzicht";
+type AuthState = "laden" | "offline" | "login" | "setup" | "ok";
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Kleur per gevoel: groen = zeer goed, geel = goed, oranje = matig, rood = slecht
+const GEVOEL_KLEUR: Record<Gevoel, string> = {
+  "zeer goed": "var(--groen)", goed: "var(--geel)", matig: "var(--oranje)", slecht: "var(--rood)",
+};
+
+function Splash({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="hero-band flex min-h-screen flex-col items-center justify-center rounded-none px-6 text-center">
+      <Fiets className="h-24 w-auto text-[var(--geel)]" />
+      <p className="font-display mt-2 text-4xl uppercase tracking-wide">Fietslog</p>
+      {children}
+    </div>
+  );
+}
+
+function App() {
+  const [auth, setAuth] = useState<AuthState>("laden");
+  const [naam, setNaam] = useState<string | null>(null);
+  const check = () =>
+    getStatus()
+      .then((s) => {
+        if (s.ingelogd) { setNaam(s.gebruikersnaam); setAuth("ok"); }
+        else setAuth(s.ingesteld ? "login" : "setup");
+      })
+      .catch(() => setAuth("offline"));
+  useEffect(() => { void check(); }, []);
+
+  if (auth === "laden") return <Splash><p className="mt-3 text-sm text-white/60">Even laden…</p></Splash>;
+  if (auth === "offline") return (
+    <Splash>
+      <p className="mt-3 max-w-xs text-white/80">De server is niet bereikbaar. Controleer je verbinding en probeer opnieuw.</p>
+      <button onClick={() => { setAuth("laden"); void check(); }} className="knop-geel font-display mt-5 rounded-xl px-8 py-2 text-xl uppercase">Opnieuw proberen</button>
+    </Splash>
+  );
+  if (auth === "login" || auth === "setup") return <><Inloggen eersteKeer={auth === "setup"} onKlaar={() => void check()} /><Toaster position="top-center" /></>;
+  return <Ritlog naam={naam} onVerlopen={() => setAuth("login")} onUitloggen={async () => { await authPost("logout"); setAuth("login"); }} />;
+}
+
+function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerlopen: () => void; onUitloggen: () => void }) {
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [tab, setTab] = useState<Tab>("nieuw");
+  const fout = (e: unknown, tekst: string) => { if (e instanceof NietIngelogd) onVerlopen(); else toast.error(tekst); };
+  useEffect(() => { fetchRides().then(setRides).catch((e) => fout(e, "Kan de server niet bereiken")); }, []);
+  const update = (r: Ride[]) => { setRides(r); saveRides(r).catch((e) => fout(e, "Opslaan op de server mislukt")); };
+  const totKm = rides.reduce((s, r) => s + r.km, 0);
+  const totMin = rides.reduce((s, r) => s + r.minuten, 0);
+
+  return (
+    <div className="min-h-screen bg-background pb-28">
+      <header className="hero-band px-5 pb-12">
+        <Fiets className="pointer-events-none absolute -right-6 bottom-6 h-24 w-auto text-[var(--geel)] opacity-20" />
+        <div className="relative mx-auto max-w-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-display text-2xl uppercase tracking-wide text-[var(--geel)]">Fietslog</p>
+              {naam && <p className="text-xs text-white/60">Hoi {naam}!</p>}
+            </div>
+            <button onClick={() => confirm("Uitloggen op dit toestel?") && onUitloggen()} aria-label="Uitloggen" className="rounded-full bg-white/10 p-2 text-white/80 active:bg-white/20"><LogOut className="h-5 w-5" /></button>
+          </div>
+          <div className="mt-4 flex items-end gap-4">
+            <div className="bib"><span className="font-display text-6xl leading-none">{totKm.toFixed(0)}</span><span className="font-display ml-1 text-2xl">km</span></div>
+            <div className="pb-1 text-sm text-white/80"><p><b className="text-white">{rides.length}</b> ritten</p><p><b className="text-white">{fmtTijd(totMin)}</b> in het zadel</p></div>
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto -mt-5 max-w-md px-4">
+        {tab === "nieuw" && <NieuweRit onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
+        {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} />}
+        {tab === "grafieken" && <Grafieken rides={rides} />}
+        {tab === "overzicht" && <Overzicht rides={rides} />}
+      </main>
+      <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
+        <div className="mx-auto grid max-w-md grid-cols-4 px-2 pt-2 pb-1">
+          {([["nieuw", Plus, "Nieuw"], ["ritten", List, "Ritten"], ["grafieken", BarChart3, "Grafieken"], ["overzicht", CalendarDays, "Overzicht"]] as const).map(([k, Icon, l]) => (
+            <button key={k} onClick={() => setTab(k)} className={`flex flex-col items-center gap-1 text-xs font-bold uppercase tracking-wide ${tab === k ? "text-[var(--geel)]" : "text-white/60"}`}>
+              <span className={`rounded-full px-4 py-1 ${tab === k ? "nav-actief" : ""}`}><Icon className="h-6 w-6" /></span>{l}
+            </button>
+          ))}
+        </div>
+      </nav>
+      <Toaster position="top-center" />
+    </div>
+  );
+}
+
+function Card({ children, title, className = "" }: { children: React.ReactNode; title?: string; className?: string }) {
+  return <section className={`mb-4 rounded-2xl border border-border bg-card p-5 shadow-card ${className}`}>{title && <h2 className="font-display mb-3 text-2xl uppercase text-card-foreground"><span className="kop-streep" />{title}</h2>}{children}</section>;
+}
+const inputCls = "w-full rounded-xl border-2 border-input bg-background px-4 py-3 text-lg text-foreground outline-none focus:border-foreground";
+const labelCls = "mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground";
+
+function NieuweRit({ onSave }: { onSave: (r: Ride) => void }) {
+  const [datum, setDatum] = useState(today());
+  const [km, setKm] = useState("");
+  const [uren, setUren] = useState("");
+  const [min, setMin] = useState("");
+  const [opm, setOpm] = useState("");
+  const [weer, setWeer] = useState<Weer>("zonnig");
+  const [gevoel, setGevoel] = useState<Gevoel>("goed");
+  const k = parseFloat(km.replace(",", "."));
+  const t = (parseInt(uren || "0") || 0) * 60 + (parseInt(min || "0") || 0);
+  const submit = () => {
+    if (!k || k <= 0) { toast.error("Vul de afstand in"); return; }
+    if (t <= 0) { toast.error("Vul de tijd in"); return; }
+    onSave({ id: crypto.randomUUID(), datum, km: k, minuten: t, opmerking: opm.trim(), weer, gevoel });
+  };
+  return (
+    <Card title="Nieuwe rit">
+      <div className="space-y-4">
+        <label className="block"><span className={labelCls}>Datum</span><input type="date" className={inputCls} value={datum} onChange={(e) => setDatum(e.target.value)} /></label>
+        <label className="block"><span className={labelCls}>Afstand (km)</span><input inputMode="decimal" placeholder="bv. 42,5" className={inputCls} value={km} onChange={(e) => setKm(e.target.value)} /></label>
+        <div><span className={labelCls}>Tijd</span>
+          <div className="flex gap-2"><input inputMode="numeric" placeholder="uren" className={inputCls} value={uren} onChange={(e) => setUren(e.target.value)} /><input inputMode="numeric" placeholder="minuten" className={inputCls} value={min} onChange={(e) => setMin(e.target.value)} /></div>
+          {k > 0 && t > 0 && <p className="mt-2 text-sm font-semibold text-muted-foreground">Gemiddeld: <span className="font-display text-xl text-foreground">{snelheid(k, t).toFixed(1).replace(".", ",")} km/u</span></p>}
+        </div>
+        <label className="block"><span className={labelCls}>Opmerking / route</span><textarea rows={2} placeholder="bv. langs de Schelde naar Temse" className={inputCls} value={opm} onChange={(e) => setOpm(e.target.value)} /></label>
+        <div><span className={labelCls}>Weer</span>
+          <div className="grid grid-cols-3 gap-2">{WEER.map((w) => <button key={w.v} onClick={() => setWeer(w.v)} className={`chip ${weer === w.v ? "chip-on" : ""}`}><span className="text-2xl">{w.e}</span>{w.v}</button>)}</div></div>
+        <div><span className={labelCls}>Hoe voelde het?</span>
+          <div className="grid grid-cols-4 gap-2">{GEVOEL.map((g) => <button key={g.v} onClick={() => setGevoel(g.v)} className={`chip ${gevoel === g.v ? "chip-on" : ""}`}><span className="text-2xl">{g.e}</span>{g.v}</button>)}</div></div>
+        <button onClick={submit} className="knop-geel font-display w-full rounded-xl py-3 text-2xl uppercase">Rit opslaan</button>
+      </div>
+    </Card>
+  );
+}
+
+const em = (list: { v: string; e: string }[], v: string) => list.find((x) => x.v === v)?.e ?? "";
+
+function Ritten({ rides, onDelete }: { rides: Ride[]; onDelete: (id: string) => void }) {
+  const sorted = [...rides].sort((a, b) => b.datum.localeCompare(a.datum));
+  const nummer = new Map([...rides].sort((a, b) => a.datum.localeCompare(b.datum)).map((r, i) => [r.id, i + 1]));
+  if (!sorted.length) return <Card><p className="text-muted-foreground">Nog geen ritten. Voeg je eerste rit toe via “Nieuw”.</p></Card>;
+  return <>
+    <button onClick={() => downloadCsv(rides)} className="knop-geel font-display mb-4 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xl uppercase"><Download className="h-5 w-5" />Download als CSV</button>
+    {sorted.map((r) => (
+      <section key={r.id} className="rit-kaart mb-4 rounded-2xl border border-border bg-card p-5 pl-7 shadow-card" style={{ "--strook": GEVOEL_KLEUR[r.gevoel] } as React.CSSProperties}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Rit {nummer.get(r.id)} · {new Date(r.datum).toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+            <p className="font-display text-4xl leading-tight text-card-foreground">{r.km.toFixed(1)} km</p>
+            <p className="text-sm font-semibold text-muted-foreground">{fmtTijd(r.minuten)} · {snelheid(r.km, r.minuten).toFixed(1)} km/u</p>
+            {r.opmerking && <p className="mt-2 break-words text-foreground">{r.opmerking}</p>}
+            <p className="mt-2 text-sm">{em(WEER, r.weer)} {r.weer} &nbsp; {em(GEVOEL, r.gevoel)} {r.gevoel}</p>
+          </div>
+          <button aria-label="Verwijderen" onClick={() => confirm("Deze rit verwijderen?") && onDelete(r.id)} className="p-2 text-muted-foreground"><Trash2 className="h-5 w-5" /></button>
+        </div>
+      </section>
+    ))}
+  </>;
+}
+
+const tooltipStyle = { background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--foreground)" };
+
+function Grafieken({ rides }: { rides: Ride[] }) {
+  const jaar = new Date().getFullYear();
+  const perMaand = MAANDEN.map((m, i) => ({ m, km: Math.round(rides.filter((r) => r.datum.startsWith(`${jaar}-${String(i + 1).padStart(2, "0")}`)).reduce((s, r) => s + r.km, 0)) }));
+  const laatste = [...rides].sort((a, b) => a.datum.localeCompare(b.datum)).slice(-15).map((r) => ({ d: r.datum.slice(5), snelheid: +snelheid(r.km, r.minuten).toFixed(1), km: r.km }));
+  const gevoel = GEVOEL.map((g) => ({ name: g.v, value: rides.filter((r) => r.gevoel === g.v).length })).filter((x) => x.value);
+  if (!rides.length) return <Card><p className="text-muted-foreground">Nog geen gegevens voor grafieken.</p></Card>;
+  return <>
+    <Card title={`Kilometers per maand (${jaar})`}>
+      <ResponsiveContainer width="100%" height={220}><BarChart data={perMaand}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="m" fontSize={11} stroke="var(--muted-foreground)" /><YAxis fontSize={11} width={35} stroke="var(--muted-foreground)" /><Tooltip contentStyle={tooltipStyle} /><Bar dataKey="km" fill="var(--chart-1)" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer>
+    </Card>
+    <Card title="Snelheid (laatste ritten)">
+      <ResponsiveContainer width="100%" height={200}><LineChart data={laatste}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="d" fontSize={11} stroke="var(--muted-foreground)" /><YAxis fontSize={11} width={35} stroke="var(--muted-foreground)" domain={["auto", "auto"]} /><Tooltip contentStyle={tooltipStyle} /><Line dataKey="snelheid" stroke="var(--chart-2)" strokeWidth={3} dot={{ r: 4, fill: "var(--geel)", stroke: "var(--chart-2)" }} /></LineChart></ResponsiveContainer>
+    </Card>
+    <Card title="Gevoel">
+      <ResponsiveContainer width="100%" height={210}><PieChart><Pie data={gevoel} dataKey="value" nameKey="name" outerRadius={78} innerRadius={34} paddingAngle={2} stroke="var(--card)" label={(e) => e.name}>{gevoel.map((g) => <Cell key={g.name} fill={GEVOEL_KLEUR[g.name as Gevoel]} />)}</Pie><Tooltip contentStyle={tooltipStyle} /></PieChart></ResponsiveContainer>
+    </Card>
+  </>;
+}
+
+function Stat({ l, v }: { l: string; v: string }) {
+  return <div className="rounded-xl bg-muted p-3"><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{l}</p><p className="font-display text-3xl leading-tight text-foreground">{v}</p></div>;
+}
+function samenvat(rs: Ride[]) {
+  const km = rs.reduce((s, r) => s + r.km, 0), min = rs.reduce((s, r) => s + r.minuten, 0);
+  return { n: rs.length, km, min, gem: snelheid(km, min), langste: Math.max(0, ...rs.map((r) => r.km)) };
+}
+const datumKort = (d: string) => new Date(d).toLocaleDateString("nl-BE", { day: "numeric", month: "short", year: "numeric" });
+
+function Truien({ rs }: { rs: Ride[] }) {
+  if (!rs.length) return null;
+  const langste = rs.reduce((a, b) => (b.km > a.km ? b : a));
+  const snelste = rs.reduce((a, b) => (snelheid(b.km, b.minuten) > snelheid(a.km, a.minuten) ? b : a));
+  const perMaand = MAANDEN.map((m, i) => ({ m, km: rs.filter((r) => r.datum.slice(5, 7) === String(i + 1).padStart(2, "0")).reduce((s, r) => s + r.km, 0) }));
+  const bergkoning = perMaand.reduce((a, b) => (b.km > a.km ? b : a));
+  const rij = "flex items-center gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0";
+  return (
+    <Card title="Truien">
+      <div>
+        <div className={rij}><Trui kleur="#ffd60a" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Gele trui · langste rit</p><p className="font-display text-2xl leading-tight">{langste.km.toFixed(1)} km <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(langste.datum)}</span></p></div></div>
+        <div className={rij}><Trui kleur="#2faa5f" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Groene trui · snelste rit</p><p className="font-display text-2xl leading-tight">{snelheid(snelste.km, snelste.minuten).toFixed(1)} km/u <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(snelste.datum)}</span></p></div></div>
+        <div className={rij}><Trui kleur="#ffffff" bolletjes className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Bolletjestrui · beste maand</p><p className="font-display text-2xl leading-tight">{bergkoning.km.toFixed(0)} km <span className="text-sm font-semibold not-italic text-muted-foreground">in {bergkoning.m}</span></p></div></div>
+      </div>
+    </Card>
+  );
+}
+
+function Overzicht({ rides }: { rides: Ride[] }) {
+  const jaren = useMemo(() => [...new Set([new Date().getFullYear(), ...rides.map((r) => +r.datum.slice(0, 4))])].sort((a, b) => b - a), [rides]);
+  const [jaar, setJaar] = useState(jaren[0]!);
+  const rj = rides.filter((r) => r.datum.startsWith(String(jaar)));
+  const s = samenvat(rj);
+  return <>
+    <Card title="Jaaroverzicht">
+      <select className={inputCls + " mb-3"} value={jaar} onChange={(e) => setJaar(+e.target.value)}>{jaren.map((j) => <option key={j}>{j}</option>)}</select>
+      <div className="grid grid-cols-2 gap-2">
+        <Stat l="Ritten" v={String(s.n)} /><Stat l="Kilometers" v={s.km.toFixed(0)} />
+        <Stat l="Tijd" v={fmtTijd(s.min)} /><Stat l="Gem. snelheid" v={`${s.gem.toFixed(1)} km/u`} />
+        <Stat l="Langste rit" v={`${s.langste.toFixed(1)} km`} /><Stat l="Gem. per rit" v={`${s.n ? (s.km / s.n).toFixed(1) : 0} km`} />
+      </div>
+    </Card>
+    <Truien rs={rj} />
+    <Card title="Per maand">
+      <table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase tracking-wider text-muted-foreground"><th className="py-1">Maand</th><th>Ritten</th><th>km</th><th>Tijd</th><th>km/u</th></tr></thead>
+        <tbody>{MAANDEN.map((m, i) => { const x = samenvat(rj.filter((r) => r.datum.slice(5, 7) === String(i + 1).padStart(2, "0"))); return (
+          <tr key={m} className={`border-t border-border ${x.n ? "text-foreground" : "text-muted-foreground"}`}><td className="py-2 font-bold uppercase">{m}</td><td>{x.n}</td><td>{x.km.toFixed(0)}</td><td>{x.n ? fmtTijd(x.min) : "–"}</td><td>{x.n ? x.gem.toFixed(1) : "–"}</td></tr>); })}</tbody></table>
+    </Card>
+  </>;
+}
