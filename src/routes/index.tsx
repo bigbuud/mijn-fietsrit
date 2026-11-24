@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings, Monitor, Sun, Moon } from "lucide-react";
+import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings, Monitor, Sun, Moon, Smartphone } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -9,6 +9,8 @@ import { Inloggen } from "@/components/Inloggen";
 import { Importeren } from "@/components/Importeren";
 import { getThema, setThema, type Thema } from "@/lib/thema";
 import { authPost, getStatus, NietIngelogd, onthoudSessie, onthoudenSessie, vergeetSessie } from "@/lib/auth";
+import { InstallPopup } from "@/components/InstallPopup";
+import { installatieAlGetoond, isGeinstalleerd, kanDirectInstalleren, onthoudInstallatieGetoond, platform } from "@/lib/installeren";
 import { aantalWachtend, lokaleRitten, plaatsInWachtrij, synchroniseer, wisLokaleData } from "@/lib/sync";
 import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, nieuwId, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
 
@@ -87,6 +89,16 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
   const [tab, setTab] = useState<Tab>("nieuw");
   const [wachtend, setWachtend] = useState(() => aantalWachtend());
   const offlineGeweest = useRef(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  // Bij het eerste bezoek (alleen op gsm/tablet in de browser) één keer uitleggen hoe je de app installeert.
+  useEffect(() => {
+    if (installatieAlGetoond() || isGeinstalleerd()) return;
+    const t = setTimeout(() => {
+      if (platform() === "andere" && !kanDirectInstalleren()) return;
+      onthoudInstallatieGetoond(); setInstallOpen(true);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, []);
   const fout = (e: unknown, tekst: string) => { if (e instanceof NietIngelogd) onVerlopen(); else toast.error(tekst); };
   // Stuurt wachtende wijzigingen naar de NAS en haalt de actuele lijst op.
   const sync = useCallback(async (melding = true) => {
@@ -148,7 +160,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
         {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
         {tab === "overzicht" && <Overzicht rides={rides} />}
-        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} />}
+        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} onInstalleren={() => setInstallOpen(true)} />}
       </main>
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
         <div className="mx-auto grid max-w-md grid-cols-4 md:max-w-2xl px-2 pt-2 pb-1">
@@ -159,6 +171,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
           ))}
         </div>
       </nav>
+      <InstallPopup open={installOpen} onOpenChange={setInstallOpen} />
       <Toaster position="top-center" />
     </div>
   );
@@ -220,7 +233,7 @@ const THEMAS = [
   { v: "donker", Icon: Moon, l: "Donker" },
 ] as const;
 
-function Instellingen({ naam, rides, onImport, onUitloggen }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void }) {
+function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void; onInstalleren: () => void }) {
   const [importOpen, setImportOpen] = useState(false);
   const [themaKeuze, setThemaKeuze] = useState<Thema>("systeem");
   useEffect(() => { setThemaKeuze(getThema()); }, []);
@@ -245,6 +258,11 @@ function Instellingen({ naam, rides, onImport, onUitloggen }: { naam: string | n
         <button onClick={() => downloadCsv(rides)} disabled={!rides.length} className="knop-accent font-display flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase disabled:opacity-50"><Download className="h-5 w-5" />Download als CSV</button>
       </div>
     </Card>
+    {!isGeinstalleerd() && (
+      <Card title="App">
+        <button onClick={onInstalleren} className={knop}><Smartphone className="h-5 w-5" />Installeren op je beginscherm</button>
+      </Card>
+    )}
     <Card title="Account">
       <button onClick={() => confirm("Uitloggen op dit toestel?") && onUitloggen()} className={knop}><LogOut className="h-5 w-5" />Uitloggen</button>
     </Card>
