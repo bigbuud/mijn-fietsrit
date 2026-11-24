@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings, Monitor, Sun, Moon, Smartphone } from "lucide-react";
+import { Plus, List, BarChart3, CalendarDays, Trash2, Download, LogOut, Upload, Pencil, Settings, Monitor, Sun, Moon, Smartphone, ChevronDown } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -276,29 +276,50 @@ function Ritten({ rides, onDelete, onEdit }: { rides: Ride[]; onDelete: (id: str
   const sorted = [...rides].sort((a, b) => b.datum.localeCompare(a.datum));
   const nummer = new Map([...rides].sort((a, b) => a.datum.localeCompare(b.datum)).map((r, i) => [r.id, i + 1]));
   if (!sorted.length) return <Card><p className="text-muted-foreground">Nog geen ritten. Voeg je eerste rit toe via “Nieuw”, of importeer je oude ritten via Instellingen (tandwiel rechtsboven).</p></Card>;
+
+  // Per maand groeperen (nieuwste eerst); de laatste 3 maanden staan open, oudere maanden zijn ingeklapt.
+  const maanden: { sleutel: string; ritten: Ride[] }[] = [];
+  for (const r of sorted) {
+    const sleutel = r.datum.slice(0, 7);
+    const laatste = maanden[maanden.length - 1];
+    if (laatste && laatste.sleutel === sleutel) laatste.ritten.push(r); else maanden.push({ sleutel, ritten: [r] });
+  }
+  const maandNaam = (sleutel: string) => new Date(`${sleutel}-15`).toLocaleDateString("nl-BE", { month: "long", year: "numeric" });
+
   return <>
-    {sorted.map((r) => r.id === bewerkId ? (
-      <div key={r.id} ref={(el) => el?.scrollIntoView({ block: "start", behavior: "smooth" })}>
-        <RitFormulier start={r} titel="Rit bewerken" opslaanTekst="Wijzigingen opslaan" onSave={(nieuw) => { onEdit(nieuw); setBewerkId(null); }} onAnnuleer={() => setBewerkId(null)}
-          onVerwijder={() => { if (confirm("Deze rit verwijderen?")) { onDelete(r.id); setBewerkId(null); } }} />
-      </div>
-    ) : (
-      <section key={r.id} className="rit-kaart mb-4 rounded-2xl border border-border bg-card p-5 pl-7 shadow-card" style={{ "--strook": r.gevoel ? GEVOEL_KLEUR[r.gevoel] : "var(--muted-foreground)" } as React.CSSProperties}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Rit {nummer.get(r.id)} · {new Date(r.datum).toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
-            <p className="font-display text-4xl leading-tight text-card-foreground">{r.km.toFixed(1)} km</p>
-            <p className="text-sm font-semibold text-muted-foreground">{fmtTijd(r.minuten)} · {snelheid(r.km, r.minuten).toFixed(1)} km/u</p>
-            {r.opmerking && <p className="mt-2 break-words text-foreground">{r.opmerking}</p>}
-            {(r.weer || r.gevoel) && <p className="mt-2 text-sm">{r.weer && `${em(WEER, r.weer)} ${r.weer}`} &nbsp; {r.gevoel && `${em(GEVOEL, r.gevoel)} ${r.gevoel}`}</p>}
+    {maanden.map((m, i) => {
+      const km = m.ritten.reduce((t, r) => t + r.km, 0);
+      return (
+        <details key={m.sleutel} open={i < 3} className="group mb-5">
+          <summary className="mb-2 flex cursor-pointer list-none items-center justify-between gap-2 px-1 [&::-webkit-details-marker]:hidden">
+            <span className="font-display text-2xl uppercase tracking-wide text-foreground"><span className="kop-streep" />{maandNaam(m.sleutel)}</span>
+            <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">{m.ritten.length} {m.ritten.length === 1 ? "rit" : "ritten"} · {Math.round(km)} km<ChevronDown className="h-5 w-5 transition-transform group-open:rotate-180" /></span>
+          </summary>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {m.ritten.map((r) => r.id === bewerkId ? (
+              <div key={r.id} className="col-span-full" ref={(el) => el?.scrollIntoView({ block: "start", behavior: "smooth" })}>
+                <RitFormulier start={r} titel="Rit bewerken" opslaanTekst="Wijzigingen opslaan" onSave={(nieuw) => { onEdit(nieuw); setBewerkId(null); }} onAnnuleer={() => setBewerkId(null)}
+                  onVerwijder={() => { if (confirm("Deze rit verwijderen?")) { onDelete(r.id); setBewerkId(null); } }} />
+              </div>
+            ) : (
+              <section key={r.id} className="rit-kaart rounded-2xl border border-border bg-card p-3 pl-5 shadow-card" style={{ "--strook": r.gevoel ? GEVOEL_KLEUR[r.gevoel] : "var(--muted-foreground)" } as React.CSSProperties}>
+                <div className="flex items-start justify-between gap-1">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{new Date(r.datum).toLocaleDateString("nl-BE", { weekday: "short", day: "numeric" })}</p>
+                  <button aria-label="Bewerken" onClick={() => setBewerkId(r.id)} className="-m-1.5 p-1.5 text-muted-foreground"><Pencil className="h-4 w-4" /></button>
+                </div>
+                <p className="font-display text-3xl leading-none text-card-foreground">{r.km.toFixed(1)}<span className="ml-1 text-base text-muted-foreground">km</span></p>
+                <p className="mt-1 text-xs font-semibold text-muted-foreground">{fmtTijd(r.minuten)} · {snelheid(r.km, r.minuten).toFixed(1)} km/u</p>
+                <div className="mt-1.5 flex items-center justify-between text-base leading-none">
+                  <span aria-label={[r.weer, r.gevoel].filter(Boolean).join(", ") || undefined}>{r.weer && em(WEER, r.weer)} {r.gevoel && em(GEVOEL, r.gevoel)}</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">#{nummer.get(r.id)}</span>
+                </div>
+                {r.opmerking && <p className="mt-1.5 line-clamp-2 break-words text-xs text-foreground">{r.opmerking}</p>}
+              </section>
+            ))}
           </div>
-          <div className="flex shrink-0">
-            <button aria-label="Bewerken" onClick={() => setBewerkId(r.id)} className="p-2.5 text-muted-foreground"><Pencil className="h-5 w-5" /></button>
-            <button aria-label="Verwijderen" onClick={() => confirm("Deze rit verwijderen?") && onDelete(r.id)} className="p-2.5 text-muted-foreground"><Trash2 className="h-5 w-5" /></button>
-          </div>
-        </div>
-      </section>
-    ))}
+        </details>
+      );
+    })}
   </>;
 }
 
