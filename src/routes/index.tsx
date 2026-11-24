@@ -134,7 +134,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
   return (
     <div className="min-h-screen bg-background pb-28">
       <header className="hero-band px-5 pb-12">
-        <Fiets className="pointer-events-none absolute -right-6 bottom-6 h-24 w-auto text-[color:var(--hero-accent)] opacity-20" />
+        <div className="fiets-baan" aria-hidden="true"><div className="fiets-rijdt"><Fiets rijdt className="fiets-wip h-full w-auto text-[color:var(--hero-accent)] opacity-40" /></div></div>
         <div className="relative mx-auto max-w-md md:max-w-2xl">
           <div className="flex items-center justify-between">
             <div>

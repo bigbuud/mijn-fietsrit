@@ -1,13 +1,17 @@
 // Getekende racefiets (lijnen in currentColor) en trui-icoon voor de trofeeën.
-export function Fiets({ className = "" }: { className?: string }) {
+// rijdt: wielen en trapas draaien rustig (alleen als de gebruiker geen "minder beweging" heeft ingesteld).
+export function Fiets({ className = "", rijdt = false }: { className?: string; rijdt?: boolean }) {
+  const draai = rijdt ? "draai" : undefined;
+  const spaken = (cx: number) => `M${cx} 42 V102 M${cx - 30} 72 H${cx + 30} M${cx - 21} 51 L${cx + 21} 93 M${cx + 21} 51 L${cx - 21} 93`;
   return (
     <svg viewBox="0 0 200 110" className={className} fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="40" cy="72" r="30" /><circle cx="160" cy="72" r="30" />
+      <g className={draai} style={{ transformOrigin: "40px 72px" }}><circle cx="40" cy="72" r="30" /><path d={spaken(40)} strokeWidth="1.2" opacity=".5" /></g>
+      <g className={draai} style={{ transformOrigin: "160px 72px" }}><circle cx="160" cy="72" r="30" /><path d={spaken(160)} strokeWidth="1.2" opacity=".5" /></g>
       <path d="M40 72 L90 72 L78 36 Z" /><path d="M78 36 L138 36 L90 72" /><path d="M138 36 L160 72" />
       <path d="M78 36 L74 24 M66 24 L88 24" />
       <path d="M138 36 L134 28 M134 28 Q146 22 154 28 Q160 34 150 42" />
-      <circle cx="90" cy="72" r="5" /><path d="M90 72 L100 86 M95 86 L106 86" />
-      <g strokeWidth="1.2" opacity=".5"><path d="M40 42 V102 M10 72 H70 M19 51 L61 93 M61 51 L19 93" /><path d="M160 42 V102 M130 72 H190 M139 51 L181 93 M181 51 L139 93" /></g>
+      <circle cx="90" cy="72" r="5" />
+      <g className={draai} style={{ transformOrigin: "90px 72px" }}><path d="M90 72 L100 86 M95 86 L106 86" /></g>
     </svg>
   );
 }
