@@ -11,7 +11,7 @@ import { getThema, setThema, type Thema } from "@/lib/thema";
 import { authPost, getStatus, NietIngelogd, onthoudSessie, onthoudenSessie, vergeetSessie } from "@/lib/auth";
 import { InstallPopup } from "@/components/InstallPopup";
 import { installatieAlGetoond, isGeinstalleerd, kanDirectInstalleren, onthoudInstallatieGetoond, platform } from "@/lib/installeren";
-import { aantalWachtend, lokaleRitten, plaatsInWachtrij, synchroniseer, wisLokaleData } from "@/lib/sync";
+import { aantalWachtend, lokaleRitten, plaatsInWachtrij, plaatsLeegInWachtrij, synchroniseer, wisLokaleData } from "@/lib/sync";
 import { GEVOEL, MAANDEN, WEER, fmtTijd, downloadCsv, nieuwId, snelheid, type Gevoel, type Ride, type Weer } from "@/lib/rides";
 
 export const Route = createFileRoute("/")({
@@ -124,6 +124,13 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
     return () => { window.removeEventListener("online", opnieuw); document.removeEventListener("visibilitychange", zichtbaar); clearInterval(timer); };
   }, [sync]);
   const update = (r: Ride[], backup = false) => { plaatsInWachtrij(rides, r, backup); setRides(r); setWachtend(aantalWachtend()); void sync(); };
+  const wisAlles = () => {
+    if (!rides.length) return;
+    if (!confirm(`Alle ${rides.length} ritten verwijderen?`)) return;
+    if (!confirm("Echt zeker? Er wordt eerst een back-up op de NAS gemaakt (rides.backup-….json), maar in de app kun je dit niet ongedaan maken.")) return;
+    plaatsLeegInWachtrij(); setRides([]); setWachtend(aantalWachtend()); void sync();
+    toast.success("Alle ritten verwijderd");
+  };
   const uitloggen = () => {
     if (aantalWachtend() > 0) { toast.error("Er wachten nog ritten op de NAS. Log pas uit als ze verstuurd zijn."); return; }
     onUitloggen();
@@ -160,7 +167,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
         {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
         {tab === "overzicht" && <Overzicht rides={rides} />}
-        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} onInstalleren={() => setInstallOpen(true)} />}
+        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} onInstalleren={() => setInstallOpen(true)} onWisAlles={wisAlles} />}
       </main>
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
         <div className="mx-auto grid max-w-md grid-cols-4 md:max-w-2xl px-2 pt-2 pb-1">
@@ -233,7 +240,7 @@ const THEMAS = [
   { v: "donker", Icon: Moon, l: "Donker" },
 ] as const;
 
-function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void; onInstalleren: () => void }) {
+function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren, onWisAlles }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void; onInstalleren: () => void; onWisAlles: () => void }) {
   const [importOpen, setImportOpen] = useState(false);
   const [themaKeuze, setThemaKeuze] = useState<Thema>("systeem");
   useEffect(() => { setThemaKeuze(getThema()); }, []);
@@ -256,6 +263,7 @@ function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren }: { n
           ? <Importeren bestaand={rides} onImport={onImport} onSluit={() => setImportOpen(false)} />
           : <button onClick={() => setImportOpen(true)} className={knop}><Upload className="h-5 w-5" />Oude ritten importeren</button>}
         <button onClick={() => downloadCsv(rides)} disabled={!rides.length} className="knop-accent font-display flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase disabled:opacity-50"><Download className="h-5 w-5" />Download als CSV</button>
+        <button onClick={onWisAlles} disabled={!rides.length} className="font-display flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--rood)] bg-card py-3 text-xl uppercase text-[var(--rood)] disabled:opacity-40"><Trash2 className="h-5 w-5" />Alle ritten verwijderen</button>
       </div>
     </Card>
     {!isGeinstalleerd() && (

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { aantalWachtend, lokaleRitten, plaatsInWachtrij, synchroniseer } from "@/lib/sync";
+import { aantalWachtend, lokaleRitten, plaatsInWachtrij, plaatsLeegInWachtrij, synchroniseer } from "@/lib/sync";
 import type { Ride } from "@/lib/rides";
 
 const rit = (id: string, km = 10): Ride => ({ id, datum: "2026-11-24", km, minuten: 30, opmerking: "", weer: "", gevoel: "" });
@@ -69,5 +69,21 @@ describe("offline wachtrij", () => {
     plaatsInWachtrij([], [rit("x")], true);
     await synchroniseer();
     expect(headers[0]?.["x-backup"]).toBe("1");
+  });
+
+  it("verwijdert alle ritten, ook die enkel op de NAS stonden, met een back-up", async () => {
+    server = [rit("a"), rit("b"), rit("andere-gsm")];
+    const headers: Record<string, string>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_u: string, init?: RequestInit) => {
+      if (init?.method === "PUT") { headers.push(init.headers as Record<string, string>); server = JSON.parse(String(init.body)); return json({ ok: true }); }
+      return json(server);
+    }));
+    plaatsLeegInWachtrij();
+    expect(lokaleRitten()).toEqual([]);
+    const res = await synchroniseer();
+    expect(res).toEqual({ status: "ok", ritten: [] });
+    expect(server).toEqual([]);
+    expect(headers[0]?.["x-backup"]).toBe("1");
+    expect(aantalWachtend()).toBe(0);
   });
 });
