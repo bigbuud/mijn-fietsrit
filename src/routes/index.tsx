@@ -9,6 +9,7 @@ import { Inloggen } from "@/components/Inloggen";
 import { Importeren } from "@/components/Importeren";
 import { getThema, setThema, type Thema } from "@/lib/thema";
 import { authPost, getStatus, NietIngelogd, onthoudSessie, onthoudenSessie, vergeetSessie } from "@/lib/auth";
+import { KLASSIEKERS, LANDEN, getLand, setLand, type Land } from "@/lib/land";
 import { InstallPopup } from "@/components/InstallPopup";
 import { installatieAlGetoond, isGeinstalleerd, kanDirectInstalleren, onthoudInstallatieGetoond, platform } from "@/lib/installeren";
 import { aantalWachtend, lokaleRitten, plaatsInWachtrij, plaatsLeegInWachtrij, synchroniseer, wisLokaleData } from "@/lib/sync";
@@ -90,6 +91,8 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
   const [wachtend, setWachtend] = useState(() => aantalWachtend());
   const offlineGeweest = useRef(false);
   const [installOpen, setInstallOpen] = useState(false);
+  const [land, setLandKeuze] = useState<Land>("it");
+  useEffect(() => { setLandKeuze(getLand()); }, []);
   // Bij het eerste bezoek (alleen op gsm/tablet in de browser) één keer uitleggen hoe je de app installeert.
   useEffect(() => {
     if (installatieAlGetoond() || isGeinstalleerd()) return;
@@ -166,8 +169,8 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
         {tab === "nieuw" && <RitFormulier titel="Nieuwe rit" opslaanTekst="Rit opslaan" onSave={(r) => { update([r, ...rides]); toast.success("Rit opgeslagen!"); setTab("ritten"); }} />}
         {tab === "ritten" && <Ritten rides={rides} onDelete={(id) => update(rides.filter((r) => r.id !== id))} onEdit={(r) => { update(rides.map((x) => (x.id === r.id ? r : x))); toast.success("Rit bijgewerkt"); }} />}
         {tab === "grafieken" && <Grafieken rides={rides} />}
-        {tab === "overzicht" && <Overzicht rides={rides} />}
-        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} onInstalleren={() => setInstallOpen(true)} onWisAlles={wisAlles} />}
+        {tab === "overzicht" && <Overzicht rides={rides} land={land} />}
+        {tab === "instellingen" && <Instellingen naam={naam} rides={rides} onImport={(nieuw) => { update([...rides, ...nieuw], true); setTab("ritten"); }} onUitloggen={uitloggen} onInstalleren={() => setInstallOpen(true)} onWisAlles={wisAlles} land={land} onLand={(l) => { setLand(l); setLandKeuze(l); }} />}
       </main>
       <nav className="nav-bar fixed inset-x-0 bottom-0 border-t border-white/10">
         <div className="mx-auto grid max-w-md grid-cols-4 md:max-w-2xl px-2 pt-2 pb-1">
@@ -240,7 +243,7 @@ const THEMAS = [
   { v: "donker", Icon: Moon, l: "Donker" },
 ] as const;
 
-function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren, onWisAlles }: { naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void; onInstalleren: () => void; onWisAlles: () => void }) {
+function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren, onWisAlles, land, onLand }: { land: Land; onLand: (l: Land) => void; naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void; onInstalleren: () => void; onWisAlles: () => void }) {
   const [importOpen, setImportOpen] = useState(false);
   const [themaKeuze, setThemaKeuze] = useState<Thema>("systeem");
   useEffect(() => { setThemaKeuze(getThema()); }, []);
@@ -248,6 +251,14 @@ function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren, onWis
   return <>
     <Card title="Instellingen">
       {naam && <p className="text-sm text-muted-foreground">Ingelogd als <b className="text-foreground">{naam}</b></p>}
+    </Card>
+    <Card title="Land">
+      <div className="grid grid-cols-3 gap-2">
+        {LANDEN.map(({ v, vlag, naam: n }) => (
+          <button key={v} type="button" onClick={() => onLand(v)} aria-pressed={land === v} className={`chip ${land === v ? "chip-on" : ""}`}><span className="text-2xl leading-none">{vlag}</span>{n}</button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">{LANDEN.find((l) => l.v === land)?.omschrijving}</p>
     </Card>
     <Card title="Achtergrond">
       <div className="grid grid-cols-3 gap-2">
@@ -361,25 +372,61 @@ function samenvat(rs: Ride[]) {
 }
 const datumKort = (d: string) => new Date(d).toLocaleDateString("nl-BE", { day: "numeric", month: "short", year: "numeric" });
 
-function Truien({ rs }: { rs: Ride[] }) {
+const TRUIEN: Record<Land, { naam: string; kleur: string; banden?: string[]; bandVan?: number; bandTot?: number; bolletjes?: boolean }[]> = {
+  it: [{ naam: "Roze trui", kleur: "#f4a3c1" }, { naam: "Ciclamino-trui", kleur: "#b0489f" }, { naam: "Blauwe trui", kleur: "#3f7fe0" }],
+  fr: [{ naam: "Gele trui", kleur: "#ffd60a" }, { naam: "Groene trui", kleur: "#2faa5f" }, { naam: "Bolletjestrui", kleur: "#ffffff", bolletjes: true }],
+  be: [
+    { naam: "Kampioenstrui", kleur: "#1a1a1a", banden: ["#1a1a1a", "#fdda24", "#ef3340"] },
+    { naam: "Regenboogtrui", kleur: "#ffffff", banden: ["#0085c7", "#f4c300", "#1a1a1a", "#009f3d", "#df0024"], bandVan: 22, bandTot: 36 },
+    { naam: "Gele trui", kleur: "#ffd60a" },
+  ],
+};
+
+function Truien({ rs, land }: { rs: Ride[]; land: Land }) {
   if (!rs.length) return null;
   const langste = rs.reduce((a, b) => (b.km > a.km ? b : a));
   const snelste = rs.reduce((a, b) => (snelheid(b.km, b.minuten) > snelheid(a.km, a.minuten) ? b : a));
   const perMaand = MAANDEN.map((m, i) => ({ m, km: rs.filter((r) => r.datum.slice(5, 7) === String(i + 1).padStart(2, "0")).reduce((s, r) => s + r.km, 0) }));
   const bergkoning = perMaand.reduce((a, b) => (b.km > a.km ? b : a));
   const rij = "flex items-center gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0";
+  const kop = "text-xs font-bold uppercase tracking-wider text-muted-foreground";
+  const klein = "text-sm font-semibold not-italic text-muted-foreground";
+  const [t1, t2, t3] = TRUIEN[land];
   return (
     <Card title="Truien">
       <div>
-        <div className={rij}><Trui kleur="#f4a3c1" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Roze trui · langste rit</p><p className="font-display text-2xl leading-tight">{langste.km.toFixed(1)} km <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(langste.datum)}</span></p></div></div>
-        <div className={rij}><Trui kleur="#2faa5f" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Groene trui · snelste rit</p><p className="font-display text-2xl leading-tight">{snelheid(snelste.km, snelste.minuten).toFixed(1)} km/u <span className="text-sm font-semibold not-italic text-muted-foreground">{datumKort(snelste.datum)}</span></p></div></div>
-        <div className={rij}><Trui kleur="#3f7fe0" className="h-12 w-12 shrink-0" /><div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Blauwe trui · beste maand</p><p className="font-display text-2xl leading-tight">{bergkoning.km.toFixed(0)} km <span className="text-sm font-semibold not-italic text-muted-foreground">in {bergkoning.m}</span></p></div></div>
+        <div className={rij}><Trui {...t1!} className="h-12 w-12 shrink-0" /><div><p className={kop}>{t1!.naam} · langste rit</p><p className="font-display text-2xl leading-tight">{langste.km.toFixed(1)} km <span className={klein}>{datumKort(langste.datum)}</span></p></div></div>
+        <div className={rij}><Trui {...t2!} className="h-12 w-12 shrink-0" /><div><p className={kop}>{t2!.naam} · snelste rit</p><p className="font-display text-2xl leading-tight">{snelheid(snelste.km, snelste.minuten).toFixed(1)} km/u <span className={klein}>{datumKort(snelste.datum)}</span></p></div></div>
+        <div className={rij}><Trui {...t3!} className="h-12 w-12 shrink-0" /><div><p className={kop}>{t3!.naam} · beste maand</p><p className="font-display text-2xl leading-tight">{bergkoning.km.toFixed(0)} km <span className={klein}>in {bergkoning.m}</span></p></div></div>
       </div>
     </Card>
   );
 }
 
-function Overzicht({ rides }: { rides: Ride[] }) {
+/** Je kilometers afgezet tegen de klassiekers van het gekozen land. */
+function Klassiekers({ km, jaar, land }: { km: number; jaar: number; land: Land }) {
+  if (km <= 0) return null;
+  const fmt = (x: number) => x.toFixed(1).replace(".", ",");
+  return (
+    <Card title="Klassiekers">
+      <p className="mb-3 text-sm text-muted-foreground">Je <b className="text-foreground">{Math.round(km)} km</b> in {jaar} is goed voor:</p>
+      <div>
+        {KLASSIEKERS[land].map((k) => (
+          <div key={k.naam} className="flex items-center justify-between gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0">
+            <div className="min-w-0">
+              <p className="font-display text-xl leading-tight">{k.naam}</p>
+              <p className="text-xs text-muted-foreground">{k.bijnaam} · {k.km} km</p>
+            </div>
+            <p className="font-display shrink-0 text-3xl leading-none">{fmt(km / k.km)}<span className="ml-0.5 text-lg text-muted-foreground">×</span></p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">Afstanden van de edities 2026 (mannen).</p>
+    </Card>
+  );
+}
+
+function Overzicht({ rides, land }: { rides: Ride[]; land: Land }) {
   const jaren = useMemo(() => [...new Set([new Date().getFullYear(), ...rides.map((r) => +r.datum.slice(0, 4))])].sort((a, b) => b - a), [rides]);
   const [jaar, setJaar] = useState(jaren[0]!);
   const rj = rides.filter((r) => r.datum.startsWith(String(jaar)));
@@ -393,7 +440,8 @@ function Overzicht({ rides }: { rides: Ride[] }) {
         <Stat l="Langste rit" v={`${s.langste.toFixed(1)} km`} /><Stat l="Gem. per rit" v={`${s.n ? (s.km / s.n).toFixed(1) : 0} km`} />
       </div>
     </Card>
-    <Truien rs={rj} />
+    <Truien rs={rj} land={land} />
+    <Klassiekers km={s.km} jaar={jaar} land={land} />
     <Card title="Per maand">
       <table className="w-full text-sm"><thead><tr className="text-left text-xs uppercase tracking-wider text-muted-foreground"><th className="py-1">Maand</th><th>Ritten</th><th>km</th><th>Tijd</th><th>km/u</th></tr></thead>
         <tbody>{MAANDEN.map((m, i) => { const x = samenvat(rj.filter((r) => r.datum.slice(5, 7) === String(i + 1).padStart(2, "0"))); return (

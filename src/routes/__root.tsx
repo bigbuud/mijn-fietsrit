@@ -87,7 +87,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
     ],
     // Thema (licht/donker) vóór het tekenen toepassen, zodat er geen flits is
-    scripts: [{ children: `try{var t=localStorage.getItem("fietslog-thema");if(t==="licht"||t==="donker")document.documentElement.setAttribute("data-theme",t)}catch(e){}` }],
+    scripts: [{ children: `try{var t=localStorage.getItem("fietslog-thema");if(t==="licht"||t==="donker")document.documentElement.setAttribute("data-theme",t)var l=localStorage.getItem("fietslog-land");if(l==="be"||l==="fr")document.documentElement.setAttribute("data-land",l)}catch(e){}` }],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
