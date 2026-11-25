@@ -140,7 +140,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
 
   return (
     <div className="min-h-screen bg-background pb-28">
-      <header className="hero-band px-5 pb-12">
+      <header className="hero-band px-5 pb-16">
         <div className="fiets-baan" aria-hidden="true"><div className="fiets-rijdt"><Fiets rijdt className="fiets-wip h-full w-auto text-[color:var(--hero-accent)] opacity-40" /></div></div>
         <div className="relative mx-auto max-w-md md:max-w-2xl">
           <div className="flex items-center justify-between">
@@ -156,7 +156,7 @@ function Ritlog({ naam, onVerlopen, onUitloggen }: { naam: string | null; onVerl
           </div>
         </div>
       </header>
-      <main className="mx-auto -mt-5 max-w-md px-4 md:max-w-2xl">
+      <main className="mx-auto mt-6 max-w-md px-4 md:max-w-2xl">
         {wachtend > 0 && (
           <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-xl border-2 border-foreground bg-card p-3 text-sm">
             <span><b>{wachtend}</b> {wachtend === 1 ? "rit wacht" : "ritten wachten"} op de NAS. Ze staan veilig op dit toestel.</span>

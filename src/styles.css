@@ -265,7 +265,7 @@
 @keyframes fiets-rij { from { transform: translateX(-110%); } to { transform: translateX(100cqw); } }
 @keyframes fiets-wip { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
 @keyframes wiel-draai { to { transform: rotate(360deg); } }
-.fiets-baan { position: absolute; left: 0; right: 0; bottom: 19px; height: 3.5rem; container-type: inline-size; pointer-events: none; }
+.fiets-baan { position: absolute; left: 0; right: 0; bottom: 19px; height: 3rem; container-type: inline-size; pointer-events: none; }
 .fiets-rijdt { display: inline-block; height: 100%; animation: fiets-rij 26s linear infinite; }
 .fiets-wip { display: block; animation: fiets-wip 1.4s ease-in-out infinite; }
 .draai { transform-box: view-box; animation: wiel-draai 3.6s linear infinite; }
