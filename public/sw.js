@@ -1,7 +1,7 @@
 // Fietslog service worker – alleen actief via https (browsers staan dit niet toe op gewoon http).
 // Doel: de app zelf (pagina, scripts, stijl, icoontjes) op het toestel bewaren, zodat ze ook opent als de NAS uit ligt.
 // Ritgegevens (/api/) worden hier nooit bewaard; die regelt de app zelf met een wachtrij.
-const VERSIE = "fietslog-v1";
+const VERSIE = "fietslog-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil((async () => {
@@ -23,15 +23,26 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(req.mode === "navigate" ? paginaEerstNetwerk(req) : bestandEerstCache(req, url));
 });
 
+// Achter een reverse proxy (Nginx Proxy Manager, Cloudflare) geeft een uitgeschakelde NAS geen netwerkfout maar een
+// 502/503/504/52x-pagina. Dat telt dus ook als "NAS niet bereikbaar": dan tonen we de bewaarde app.
 async function paginaEerstNetwerk(req) {
   const c = await caches.open(VERSIE);
+  const bewaard = await c.match("/");
   try {
-    const res = await fetch(req);
-    if (res.ok && new URL(req.url).pathname === "/") c.put("/", res.clone());
+    const res = await fetchMetTijdslimiet(req, bewaard ? 4000 : 0);
+    if (res.ok) { if (new URL(req.url).pathname === "/") c.put("/", res.clone()); return res; }
+    if (res.status >= 500 && bewaard) return bewaard;
     return res;
   } catch {
-    return (await c.match("/")) || Response.error();
+    return bewaard || Response.error();
   }
+}
+
+function fetchMetTijdslimiet(req, ms) {
+  if (!ms) return fetch(req);
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  return fetch(req, { signal: ctl.signal }).finally(() => clearTimeout(t));
 }
 
 async function bestandEerstCache(req, url) {

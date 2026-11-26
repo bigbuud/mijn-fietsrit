@@ -237,6 +237,26 @@ function RitFormulier({ start, titel, opslaanTekst, onSave, onAnnuleer, onVerwij
   );
 }
 
+/** Kan de app ook openen als de NAS uit ligt? Dat vraagt https + een actieve service worker. */
+function useOfflineStatus() {
+  const lees = () => {
+    if (typeof window === "undefined" || !window.isSecureContext || !("serviceWorker" in navigator))
+      return { icoon: "❌", kop: "Offline openen niet mogelijk", uitleg: "De app wordt nu via een onbeveiligd adres (http) geladen en dan staat je browser geen offline start toe. Via https wel. Ritten die je toevoegt terwijl de app open staat, worden altijd bewaard en later naar de NAS gestuurd." };
+    if (navigator.serviceWorker.controller)
+      return { icoon: "✅", kop: "Actief", uitleg: "De app staat op dit toestel en opent ook als de NAS uit ligt. Nieuwe ritten worden bewaard en later verstuurd." };
+    return { icoon: "⏳", kop: "Wordt voorbereid", uitleg: "Herlaad de pagina één keer terwijl de NAS aan staat; daarna werkt offline openen." };
+  };
+  const [status, setStatus] = useState(lees);
+  useEffect(() => {
+    setStatus(lees());
+    if (!("serviceWorker" in navigator)) return;
+    const f = () => setStatus(lees());
+    navigator.serviceWorker.addEventListener("controllerchange", f);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", f);
+  }, []);
+  return status;
+}
+
 const THEMAS = [
   { v: "systeem", Icon: Monitor, l: "Systeem" },
   { v: "licht", Icon: Sun, l: "Licht" },
@@ -244,6 +264,7 @@ const THEMAS = [
 ] as const;
 
 function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren, onWisAlles, land, onLand }: { land: Land; onLand: (l: Land) => void; naam: string | null; rides: Ride[]; onImport: (nieuw: Ride[]) => void; onUitloggen: () => void; onInstalleren: () => void; onWisAlles: () => void }) {
+  const offline = useOfflineStatus();
   const [importOpen, setImportOpen] = useState(false);
   const [themaKeuze, setThemaKeuze] = useState<Thema>("systeem");
   useEffect(() => { setThemaKeuze(getThema()); }, []);
@@ -276,6 +297,10 @@ function Instellingen({ naam, rides, onImport, onUitloggen, onInstalleren, onWis
         <button onClick={() => downloadCsv(rides)} disabled={!rides.length} className="knop-accent font-display flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xl uppercase disabled:opacity-50"><Download className="h-5 w-5" />Download als CSV</button>
         <button onClick={onWisAlles} disabled={!rides.length} className="font-display flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--rood)] bg-card py-3 text-xl uppercase text-[var(--rood)] disabled:opacity-40"><Trash2 className="h-5 w-5" />Alle ritten verwijderen</button>
       </div>
+    </Card>
+    <Card title="Offline gebruik">
+      <p className="text-sm">{offline.icoon} <b>{offline.kop}</b></p>
+      <p className="mt-1 text-xs text-muted-foreground">{offline.uitleg}</p>
     </Card>
     {!isGeinstalleerd() && (
       <Card title="App">
